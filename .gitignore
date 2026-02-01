@@ -1,0 +1,22 @@
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+.codemap/
+
+# Build artifacts
+*.mcpb
+dist/
+bundle*/

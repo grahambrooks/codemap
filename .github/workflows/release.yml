@@ -1,0 +1,194 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: codemap-linux-x64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: codemap-darwin-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: codemap-darwin-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: codemap-windows-x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/codemap dist/
+          chmod +x dist/codemap
+
+      - name: Prepare artifact (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir dist
+          copy target\${{ matrix.target }}\release\codemap.exe dist\
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/
+
+  package:
+    name: Package MCPB
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install mcpb CLI
+        run: npm install -g @anthropic-ai/mcpb
+
+      - name: Prepare bundle structure
+        run: |
+          mkdir -p bundle/bin
+
+          # Copy manifest
+          cp manifest.json bundle/
+
+          # Update manifest version from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          jq --arg v "$VERSION" '.version = $v' bundle/manifest.json > bundle/manifest.tmp.json
+          mv bundle/manifest.tmp.json bundle/manifest.json
+
+      - name: Create platform-specific bundles
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+
+          # macOS x64
+          mkdir -p bundle-darwin-x64/bin
+          cp bundle/manifest.json bundle-darwin-x64/
+          cp artifacts/codemap-darwin-x64/codemap bundle-darwin-x64/bin/
+          chmod +x bundle-darwin-x64/bin/codemap
+          cd bundle-darwin-x64 && zip -r ../codemap-${VERSION}-darwin-x64.mcpb . && cd ..
+
+          # macOS arm64
+          mkdir -p bundle-darwin-arm64/bin
+          cp bundle/manifest.json bundle-darwin-arm64/
+          cp artifacts/codemap-darwin-arm64/codemap bundle-darwin-arm64/bin/
+          chmod +x bundle-darwin-arm64/bin/codemap
+          cd bundle-darwin-arm64 && zip -r ../codemap-${VERSION}-darwin-arm64.mcpb . && cd ..
+
+          # Linux x64
+          mkdir -p bundle-linux-x64/bin
+          cp bundle/manifest.json bundle-linux-x64/
+          cp artifacts/codemap-linux-x64/codemap bundle-linux-x64/bin/
+          chmod +x bundle-linux-x64/bin/codemap
+          cd bundle-linux-x64 && zip -r ../codemap-${VERSION}-linux-x64.mcpb . && cd ..
+
+          # Windows x64
+          mkdir -p bundle-windows-x64/bin
+          cp bundle/manifest.json bundle-windows-x64/
+          cp artifacts/codemap-windows-x64/codemap.exe bundle-windows-x64/bin/
+          cd bundle-windows-x64 && zip -r ../codemap-${VERSION}-windows-x64.mcpb . && cd ..
+
+      - name: Create universal macOS bundle
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+
+          # Create universal binary for macOS
+          mkdir -p bundle-darwin-universal/bin
+          cp bundle/manifest.json bundle-darwin-universal/
+
+          # Use lipo to create universal binary (if both exist)
+          if [ -f artifacts/codemap-darwin-x64/codemap ] && [ -f artifacts/codemap-darwin-arm64/codemap ]; then
+            # Note: lipo only works on macOS, so we'll just include arm64 as primary
+            cp artifacts/codemap-darwin-arm64/codemap bundle-darwin-universal/bin/
+          fi
+          chmod +x bundle-darwin-universal/bin/codemap
+          cd bundle-darwin-universal && zip -r ../codemap-${VERSION}-darwin-universal.mcpb . && cd ..
+
+      - name: Upload MCPB bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcpb-bundles
+          path: "*.mcpb"
+
+  release:
+    name: Create Release
+    needs: [build, package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mkdir -p release
+
+          # Create tarballs for standalone binaries
+          cd artifacts/codemap-linux-x64
+          tar -czf ../../release/codemap-${VERSION}-linux-x64.tar.gz codemap
+          cd ../..
+
+          cd artifacts/codemap-darwin-x64
+          tar -czf ../../release/codemap-${VERSION}-darwin-x64.tar.gz codemap
+          cd ../..
+
+          cd artifacts/codemap-darwin-arm64
+          tar -czf ../../release/codemap-${VERSION}-darwin-arm64.tar.gz codemap
+          cd ../..
+
+          cd artifacts/codemap-windows-x64
+          zip ../../release/codemap-${VERSION}-windows-x64.zip codemap.exe
+          cd ../..
+
+          # Copy MCPB bundles
+          cp artifacts/mcpb-bundles/*.mcpb release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
