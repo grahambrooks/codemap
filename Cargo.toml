@@ -19,18 +19,18 @@ tokio-util = "0.7"
 tokio = { version = "1", features = ["full"] }
 
 # Tree-sitter for code parsing
-tree-sitter = "0.24"
-tree-sitter-rust = "0.23"
-tree-sitter-javascript = "0.23"
+tree-sitter = "0.26"
+tree-sitter-rust = "0.24"
+tree-sitter-javascript = "0.25"
 tree-sitter-typescript = "0.23"
-tree-sitter-python = "0.23"
-tree-sitter-go = "0.23"
+tree-sitter-python = "0.25"
+tree-sitter-go = "0.25.0"
 tree-sitter-java = "0.23"
-tree-sitter-c = "0.23"
+tree-sitter-c = "0.24"
 tree-sitter-cpp = "0.23"
 
 # Database
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.38.0", features = ["bundled"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -38,10 +38,8 @@ serde_json = "1"
 
 # Error handling
 anyhow = "1"
-thiserror = "2"
 
 # Utilities
-walkdir = "2"
 ignore = "0.4"
 sha2 = "0.10"
 hex = "0.4"

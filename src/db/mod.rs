@@ -451,18 +451,18 @@ impl Database {
 
     /// Get index statistics
     pub fn get_stats(&self) -> Result<IndexStats> {
-        let total_files: u64 = self
+        let total_files: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM files", [], |row| row.get(0))?;
-        let total_nodes: u64 = self
+        let total_nodes: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM nodes", [], |row| row.get(0))?;
-        let total_edges: u64 = self
+        let total_edges: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))?;
 
         // Get database file size
-        let db_size_bytes: u64 = self
+        let db_size_bytes: i64 = self
             .conn
             .query_row("SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", [], |row| row.get(0))
             .unwrap_or(0);
@@ -473,8 +473,8 @@ impl Database {
             .prepare("SELECT language, COUNT(*) FROM nodes GROUP BY language")?;
         let lang_rows = stmt.query_map([], |row| {
             let lang_str: String = row.get(0)?;
-            let count: u64 = row.get(1)?;
-            Ok((Language::from_extension(&lang_str), count))
+            let count: i64 = row.get(1)?;
+            Ok((Language::from_extension(&lang_str), count as u64))
         })?;
         let mut languages = Vec::new();
         for row in lang_rows {
@@ -487,10 +487,10 @@ impl Database {
             .prepare("SELECT kind, COUNT(*) FROM nodes GROUP BY kind")?;
         let kind_rows = stmt.query_map([], |row| {
             let kind_str: String = row.get(0)?;
-            let count: u64 = row.get(1)?;
+            let count: i64 = row.get(1)?;
             Ok((
                 NodeKind::from_str(&kind_str).unwrap_or(NodeKind::Function),
-                count,
+                count as u64,
             ))
         })?;
         let mut node_kinds = Vec::new();
@@ -499,10 +499,10 @@ impl Database {
         }
 
         Ok(IndexStats {
-            total_files,
-            total_nodes,
-            total_edges,
-            db_size_bytes,
+            total_files: total_files as u64,
+            total_nodes: total_nodes as u64,
+            total_edges: total_edges as u64,
+            db_size_bytes: db_size_bytes as u64,
             languages,
             node_kinds,
         })
