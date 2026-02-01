@@ -105,13 +105,13 @@ codemap context <task>         # Build context for a task
 
 | Tool              | Description                                    |
 |-------------------|------------------------------------------------|
-| `codemap_context` | Build focused code context for a specific task |
-| `codemap_search`  | Quick symbol search by name                    |
-| `codemap_callers` | Find all callers of a symbol                   |
-| `codemap_callees` | Find all callees of a symbol                   |
-| `codemap_impact`  | Analyze the impact radius of changes           |
-| `codemap_node`    | Get detailed symbol information                |
-| `codemap_status`  | Get index statistics                           |
+| `codemap-context` | Build focused code context for a specific task |
+| `codemap-search`  | Quick symbol search by name                    |
+| `codemap-callers` | Find all callers of a symbol                   |
+| `codemap-callees` | Find all callees of a symbol                   |
+| `codemap-impact`  | Analyze the impact radius of changes           |
+| `codemap-node`    | Get detailed symbol information                |
+| `codemap-status`  | Get index statistics                           |
 
 ## Configuration
 

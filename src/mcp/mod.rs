@@ -1,13 +1,13 @@
 //! MCP (Model Context Protocol) server implementation
 //!
 //! Exposes the code graph functionality as MCP tools:
-//! - codemap_context: Build task-specific code context
-//! - codemap_search: Find symbols by name
-//! - codemap_callers: Find all callers of a symbol
-//! - codemap_callees: Find all callees of a symbol
-//! - codemap_impact: Analyze change impact
-//! - codemap_node: Get detailed symbol information
-//! - codemap_status: Get index statistics
+//! - codemap-context: Build task-specific code context
+//! - codemap-search: Find symbols by name
+//! - codemap-callers: Find all callers of a symbol
+//! - codemap-callees: Find all callees of a symbol
+//! - codemap-impact: Analyze change impact
+//! - codemap-node: Get detailed symbol information
+//! - codemap-status: Get index statistics
 
 use std::sync::{Arc, Mutex};
 
@@ -72,6 +72,7 @@ impl CodeMapHandler {
 
     /// Build focused context for a specific task
     #[tool(
+        name = "codemap-context",
         description = "Build focused code context for a specific task. Returns entry points, related symbols, and code snippets."
     )]
     fn codemap_context(&self, Parameters(req): Parameters<ContextRequest>) -> String {
@@ -94,7 +95,10 @@ impl CodeMapHandler {
     }
 
     /// Quick symbol search by name
-    #[tool(description = "Quick symbol search by name. Returns locations only (no code).")]
+    #[tool(
+        name = "codemap-search",
+        description = "Quick symbol search by name. Returns locations only (no code)."
+    )]
     fn codemap_search(&self, Parameters(req): Parameters<SearchRequest>) -> String {
         let db = match self.db.lock() {
             Ok(db) => db,
@@ -134,7 +138,10 @@ impl CodeMapHandler {
     }
 
     /// Find all callers of a symbol
-    #[tool(description = "Find all functions/methods that call a specific symbol.")]
+    #[tool(
+        name = "codemap-callers",
+        description = "Find all functions/methods that call a specific symbol."
+    )]
     fn codemap_callers(&self, Parameters(req): Parameters<SymbolRequest>) -> String {
         let db = match self.db.lock() {
             Ok(db) => db,
@@ -167,7 +174,10 @@ impl CodeMapHandler {
     }
 
     /// Find all callees of a symbol
-    #[tool(description = "Find all functions/methods that a specific symbol calls.")]
+    #[tool(
+        name = "codemap-callees",
+        description = "Find all functions/methods that a specific symbol calls."
+    )]
     fn codemap_callees(&self, Parameters(req): Parameters<SymbolRequest>) -> String {
         let db = match self.db.lock() {
             Ok(db) => db,
@@ -200,7 +210,10 @@ impl CodeMapHandler {
     }
 
     /// Analyze the impact of changing a symbol
-    #[tool(description = "Analyze the impact radius of changing a symbol.")]
+    #[tool(
+        name = "codemap-impact",
+        description = "Analyze the impact radius of changing a symbol."
+    )]
     fn codemap_impact(&self, Parameters(req): Parameters<SymbolRequest>) -> String {
         let db = match self.db.lock() {
             Ok(db) => db,
@@ -264,7 +277,10 @@ impl CodeMapHandler {
     }
 
     /// Get detailed information about a symbol
-    #[tool(description = "Get detailed information about a specific code symbol.")]
+    #[tool(
+        name = "codemap-node",
+        description = "Get detailed information about a specific code symbol."
+    )]
     fn codemap_node(&self, Parameters(req): Parameters<SymbolRequest>) -> String {
         let db = match self.db.lock() {
             Ok(db) => db,
@@ -309,6 +325,7 @@ impl CodeMapHandler {
 
     /// Get index statistics
     #[tool(
+        name = "codemap-status",
         description = "Get the status of the codemap index. Shows statistics about indexed files, symbols, and relationships."
     )]
     fn codemap_status(&self) -> String {
@@ -356,8 +373,8 @@ impl ServerHandler for CodeMapHandler {
         ServerInfo {
             instructions: Some(
                 "codemap provides semantic code intelligence for exploring codebases. \
-                Use codemap_context to build task-focused context, codemap_search for quick lookups, \
-                and codemap_callers/callees/impact for understanding code relationships."
+                Use codemap-context to build task-focused context, codemap-search for quick lookups, \
+                and codemap-callers/callees/impact for understanding code relationships."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),

@@ -180,19 +180,19 @@ src/
 
 | Tool | Input | Output | Use Case |
 |------|-------|--------|----------|
-| `codemap_context` | `{task: string}` | Focused code context | AI coding tasks, feature planning |
-| `codemap_search` | `{query: string}` | List of matching symbols | "Find all Database symbols" |
-| `codemap_callers` | `{symbol: string}` | All functions that call this | "Who calls this function?" |
-| `codemap_callees` | `{symbol: string}` | All functions this calls | "What does this function call?" |
-| `codemap_impact` | `{symbol: string}` | Impact analysis (direct + indirect) | "What breaks if I change this?" |
-| `codemap_node` | `{symbol: string}` | Full symbol details | Language, visibility, signature, docs |
-| `codemap_status` | None | Index statistics | Health check, debugging |
+| `codemap-context` | `{task: string}` | Focused code context | AI coding tasks, feature planning |
+| `codemap-search` | `{query: string}` | List of matching symbols | "Find all Database symbols" |
+| `codemap-callers` | `{symbol: string}` | All functions that call this | "Who calls this function?" |
+| `codemap-callees` | `{symbol: string}` | All functions this calls | "What does this function call?" |
+| `codemap-impact` | `{symbol: string}` | Impact analysis (direct + indirect) | "What breaks if I change this?" |
+| `codemap-node` | `{symbol: string}` | Full symbol details | Language, visibility, signature, docs |
+| `codemap-status` | None | Index statistics | Health check, debugging |
 
 **Example Workflow**:
-1. Agent wants to understand a function: `codemap_node {symbol: "handle_request"}`
-2. See what it calls: `codemap_callees {symbol: "handle_request"}`
-3. See what calls it: `codemap_callers {symbol: "handle_request"}`
-4. Analyze impact before changing: `codemap_impact {symbol: "handle_request"}`
+1. Agent wants to understand a function: `codemap-node {symbol: "handle_request"}`
+2. See what it calls: `codemap-callees {symbol: "handle_request"}`
+3. See what calls it: `codemap-callers {symbol: "handle_request"}`
+4. Analyze impact before changing: `codemap-impact {symbol: "handle_request"}`
 
 ## Agent-Specific Guidelines
 

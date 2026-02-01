@@ -1,7 +1,7 @@
 {
   "manifest_version": "1",
   "name": "codemap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "display_name": "Code Map",
   "description": "Semantic code intelligence - build knowledge graphs of codebases for AI-assisted exploration",
   "long_description": "Code Map uses tree-sitter to parse source code and build a knowledge graph of symbols and their relationships. It provides MCP tools for searching symbols, finding callers/callees, analyzing change impact, and building focused context for AI tasks.\n\nSupported languages: Rust, TypeScript, JavaScript, Python, Go, Java, C, C++",
@@ -36,31 +36,31 @@
   },
   "tools": [
     {
-      "name": "codemap_context",
+      "name": "codemap-context",
       "description": "Build focused code context for a specific task. Returns entry points, related symbols, and code snippets."
     },
     {
-      "name": "codemap_search",
+      "name": "codemap-search",
       "description": "Quick symbol search by name. Returns locations only (no code)."
     },
     {
-      "name": "codemap_callers",
+      "name": "codemap-callers",
       "description": "Find all functions/methods that call a specific symbol."
     },
     {
-      "name": "codemap_callees",
+      "name": "codemap-callees",
       "description": "Find all functions/methods that a specific symbol calls."
     },
     {
-      "name": "codemap_impact",
+      "name": "codemap-impact",
       "description": "Analyze the impact radius of changing a symbol."
     },
     {
-      "name": "codemap_node",
+      "name": "codemap-node",
       "description": "Get detailed information about a specific code symbol."
     },
     {
-      "name": "codemap_status",
+      "name": "codemap-status",
       "description": "Get the status of the codemap index. Shows statistics about indexed files, symbols, and relationships."
     }
   ],
