@@ -1021,7 +1021,7 @@ mod language_tests {
     #[test]
     fn test_language_roundtrip() {
         let db = Database::in_memory().unwrap();
-        
+
         // First insert a file
         let file = FileRecord {
             path: "test.rs".to_string(),
@@ -1033,7 +1033,7 @@ mod language_tests {
             node_count: 1,
         };
         db.upsert_file(&file).unwrap();
-        
+
         let node = Node {
             id: 0,
             kind: NodeKind::Function,
@@ -1052,11 +1052,21 @@ mod language_tests {
             is_exported: false,
             language: Language::Rust,
         };
-        
+
         db.insert_node(&node).unwrap();
         let retrieved = db.find_node_by_name("test_func").unwrap().unwrap();
-        
-        assert_eq!(retrieved.language, Language::Rust, "Language should be Rust, got {:?}", retrieved.language);
-        assert_eq!(retrieved.visibility, Visibility::Private, "Visibility should be Private, got {:?}", retrieved.visibility);
+
+        assert_eq!(
+            retrieved.language,
+            Language::Rust,
+            "Language should be Rust, got {:?}",
+            retrieved.language
+        );
+        assert_eq!(
+            retrieved.visibility,
+            Visibility::Private,
+            "Visibility should be Private, got {:?}",
+            retrieved.visibility
+        );
     }
 }
