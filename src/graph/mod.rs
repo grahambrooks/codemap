@@ -202,11 +202,7 @@ impl<'a> Graph<'a> {
     }
 
     /// Find related symbols given a set of entry points
-    pub fn find_related(
-        &self,
-        entry_points: &[Node],
-        max_nodes: u32,
-    ) -> Result<Vec<Node>> {
+    pub fn find_related(&self, entry_points: &[Node], max_nodes: u32) -> Result<Vec<Node>> {
         let mut related: HashMap<i64, (Node, f64)> = HashMap::new();
         let mut visited: HashSet<i64> = HashSet::new();
 

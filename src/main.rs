@@ -193,10 +193,7 @@ fn run_status(path: &str) -> Result<()> {
     println!("Files: {}", stats.total_files);
     println!("Symbols: {}", stats.total_nodes);
     println!("Relationships: {}", stats.total_edges);
-    println!(
-        "Size: {:.2} KB",
-        stats.db_size_bytes as f64 / 1024.0
-    );
+    println!("Size: {:.2} KB", stats.db_size_bytes as f64 / 1024.0);
 
     if !stats.languages.is_empty() {
         println!("\nLanguages:");

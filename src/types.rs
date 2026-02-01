@@ -63,7 +63,7 @@ impl NodeKind {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "file" => Some(NodeKind::File),
             "module" => Some(NodeKind::Module),
@@ -140,7 +140,7 @@ impl EdgeKind {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "contains" => Some(EdgeKind::Contains),
             "calls" => Some(EdgeKind::Calls),
@@ -257,7 +257,7 @@ impl Visibility {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "public" | "pub" => Visibility::Public,
             "private" | "priv" => Visibility::Private,
@@ -415,11 +415,14 @@ mod tests {
 
     #[test]
     fn test_node_kind_from_str() {
-        assert_eq!(NodeKind::from_str("function"), Some(NodeKind::Function));
-        assert_eq!(NodeKind::from_str("class"), Some(NodeKind::Class));
-        assert_eq!(NodeKind::from_str("enum_member"), Some(NodeKind::EnumMember));
-        assert_eq!(NodeKind::from_str("invalid"), None);
-        assert_eq!(NodeKind::from_str(""), None);
+        assert_eq!(NodeKind::parse("function"), Some(NodeKind::Function));
+        assert_eq!(NodeKind::parse("class"), Some(NodeKind::Class));
+        assert_eq!(
+            NodeKind::parse("enum_member"),
+            Some(NodeKind::EnumMember)
+        );
+        assert_eq!(NodeKind::parse("invalid"), None);
+        assert_eq!(NodeKind::parse(""), None);
     }
 
     #[test]
@@ -451,7 +454,7 @@ mod tests {
 
         for kind in kinds {
             let s = kind.as_str();
-            let parsed = NodeKind::from_str(s);
+            let parsed = NodeKind::parse(s);
             assert_eq!(parsed, Some(kind), "Roundtrip failed for {:?}", kind);
         }
     }
@@ -466,10 +469,10 @@ mod tests {
 
     #[test]
     fn test_edge_kind_from_str() {
-        assert_eq!(EdgeKind::from_str("calls"), Some(EdgeKind::Calls));
-        assert_eq!(EdgeKind::from_str("contains"), Some(EdgeKind::Contains));
-        assert_eq!(EdgeKind::from_str("type_of"), Some(EdgeKind::TypeOf));
-        assert_eq!(EdgeKind::from_str("invalid"), None);
+        assert_eq!(EdgeKind::parse("calls"), Some(EdgeKind::Calls));
+        assert_eq!(EdgeKind::parse("contains"), Some(EdgeKind::Contains));
+        assert_eq!(EdgeKind::parse("type_of"), Some(EdgeKind::TypeOf));
+        assert_eq!(EdgeKind::parse("invalid"), None);
     }
 
     #[test]
@@ -491,7 +494,7 @@ mod tests {
 
         for kind in kinds {
             let s = kind.as_str();
-            let parsed = EdgeKind::from_str(s);
+            let parsed = EdgeKind::parse(s);
             assert_eq!(parsed, Some(kind), "Roundtrip failed for {:?}", kind);
         }
     }
@@ -543,14 +546,14 @@ mod tests {
     // Visibility tests
     #[test]
     fn test_visibility_from_str() {
-        assert_eq!(Visibility::from_str("public"), Visibility::Public);
-        assert_eq!(Visibility::from_str("pub"), Visibility::Public);
-        assert_eq!(Visibility::from_str("private"), Visibility::Private);
-        assert_eq!(Visibility::from_str("priv"), Visibility::Private);
-        assert_eq!(Visibility::from_str("protected"), Visibility::Protected);
-        assert_eq!(Visibility::from_str("internal"), Visibility::Internal);
-        assert_eq!(Visibility::from_str("unknown"), Visibility::Unknown);
-        assert_eq!(Visibility::from_str(""), Visibility::Unknown);
+        assert_eq!(Visibility::parse("public"), Visibility::Public);
+        assert_eq!(Visibility::parse("pub"), Visibility::Public);
+        assert_eq!(Visibility::parse("private"), Visibility::Private);
+        assert_eq!(Visibility::parse("priv"), Visibility::Private);
+        assert_eq!(Visibility::parse("protected"), Visibility::Protected);
+        assert_eq!(Visibility::parse("internal"), Visibility::Internal);
+        assert_eq!(Visibility::parse("unknown"), Visibility::Unknown);
+        assert_eq!(Visibility::parse(""), Visibility::Unknown);
     }
 
     #[test]

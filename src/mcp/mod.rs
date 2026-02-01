@@ -71,7 +71,9 @@ impl CodeMapHandler {
     }
 
     /// Build focused context for a specific task
-    #[tool(description = "Build focused code context for a specific task. Returns entry points, related symbols, and code snippets.")]
+    #[tool(
+        description = "Build focused code context for a specific task. Returns entry points, related symbols, and code snippets."
+    )]
     fn codemap_context(&self, Parameters(req): Parameters<ContextRequest>) -> String {
         let db = match self.db.lock() {
             Ok(db) => db,
@@ -108,7 +110,11 @@ impl CodeMapHandler {
             return format!("No symbols found matching '{}'", req.query);
         }
 
-        let mut output = format!("Found {} symbols matching '{}':\n\n", results.len(), req.query);
+        let mut output = format!(
+            "Found {} symbols matching '{}':\n\n",
+            results.len(),
+            req.query
+        );
 
         for node in results {
             output.push_str(&format!(
@@ -302,7 +308,9 @@ impl CodeMapHandler {
     }
 
     /// Get index statistics
-    #[tool(description = "Get the status of the codemap index. Shows statistics about indexed files, symbols, and relationships.")]
+    #[tool(
+        description = "Get the status of the codemap index. Shows statistics about indexed files, symbols, and relationships."
+    )]
     fn codemap_status(&self) -> String {
         let db = match self.db.lock() {
             Ok(db) => db,

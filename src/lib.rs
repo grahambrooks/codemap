@@ -138,11 +138,9 @@ pub fn index_codebase(db: &mut Database, config: &IndexConfig) -> Result<IndexSt
 
         // Check excluded directories
         let path_str = path.display().to_string();
-        if config
-            .exclude_dirs
-            .iter()
-            .any(|d| path_str.contains(&format!("/{}/", d)) || path_str.contains(&format!("\\{}\\", d)))
-        {
+        if config.exclude_dirs.iter().any(|d| {
+            path_str.contains(&format!("/{}/", d)) || path_str.contains(&format!("\\{}\\", d))
+        }) {
             continue;
         }
 

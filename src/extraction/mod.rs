@@ -31,10 +31,7 @@ impl Extractor {
     /// Extract symbols from a source file
     pub fn extract_file<P: AsRef<Path>>(&mut self, path: P, content: &str) -> ExtractionResult {
         let path = path.as_ref();
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         let language = Language::from_extension(ext);
 
         if language == Language::Unknown {
@@ -102,7 +99,11 @@ impl Extractor {
         let file_node = Node {
             id: ctx.next_id,
             kind: NodeKind::File,
-            name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             qualified_name: Some(file_path.clone()),
             file_path: file_path.clone(),
             start_line: 0,
@@ -227,7 +228,9 @@ impl<'a> ExtractionContext<'a> {
                 let name = self.get_node_text(&name_node);
                 if !name.is_empty() {
                     // Handle pointer declarators in C/C++
-                    if name_node.kind() == "pointer_declarator" || name_node.kind() == "function_declarator" {
+                    if name_node.kind() == "pointer_declarator"
+                        || name_node.kind() == "function_declarator"
+                    {
                         if let Some(id) = name_node.child_by_field_name("declarator") {
                             return self.get_node_text(&id);
                         }
@@ -295,7 +298,7 @@ impl<'a> ExtractionContext<'a> {
             let kind = child.kind();
             if kind == "visibility_modifier" || kind == "access_specifier" {
                 let vis_text = self.get_node_text(&child);
-                return Visibility::from_str(&vis_text);
+                return Visibility::parse(&vis_text);
             }
         }
 
@@ -465,7 +468,9 @@ mod tests {
         let mut extractor = Extractor::new();
         let result = extractor.extract_file("test.xyz", "some content");
         assert!(!result.errors.is_empty());
-        assert!(result.errors[0].message.contains("Unsupported file extension"));
+        assert!(result.errors[0]
+            .message
+            .contains("Unsupported file extension"));
     }
 
     // Rust extraction tests
@@ -715,7 +720,11 @@ async def fetch_data():
     await some_async_call()
 "#;
         let result = extractor.extract_file("test.py", code);
-        let func = result.nodes.iter().find(|n| n.name == "fetch_data").unwrap();
+        let func = result
+            .nodes
+            .iter()
+            .find(|n| n.name == "fetch_data")
+            .unwrap();
         assert!(func.is_async);
     }
 

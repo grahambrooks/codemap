@@ -214,9 +214,8 @@ impl Database {
                 nodes.push(row?);
             }
         } else {
-            let rows = stmt.query_map(params![pattern, limit as i64], |row| {
-                Self::row_to_node(row)
-            })?;
+            let rows =
+                stmt.query_map(params![pattern, limit as i64], Self::row_to_node)?;
             for row in rows {
                 nodes.push(row?);
             }
@@ -230,7 +229,7 @@ impl Database {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM nodes WHERE file_path = ?1 ORDER BY start_line")?;
-        let rows = stmt.query_map(params![file_path], |row| Self::row_to_node(row))?;
+        let rows = stmt.query_map(params![file_path], Self::row_to_node)?;
 
         let mut nodes = Vec::new();
         for row in rows {
@@ -246,7 +245,7 @@ impl Database {
             .query_row(
                 "SELECT * FROM nodes WHERE name = ?1 LIMIT 1",
                 params![name],
-                |row| Self::row_to_node(row),
+                Self::row_to_node,
             )
             .optional()?;
         Ok(result)
@@ -255,7 +254,7 @@ impl Database {
     fn row_to_node(row: &rusqlite::Row) -> rusqlite::Result<Node> {
         Ok(Node {
             id: row.get(0)?,
-            kind: NodeKind::from_str(&row.get::<_, String>(1)?).unwrap_or(NodeKind::Function),
+            kind: NodeKind::parse(&row.get::<_, String>(1)?).unwrap_or(NodeKind::Function),
             name: row.get(2)?,
             qualified_name: row.get(3)?,
             file_path: row.get(4)?,
@@ -264,7 +263,7 @@ impl Database {
             start_column: row.get::<_, i64>(7)? as u32,
             end_column: row.get::<_, i64>(8)? as u32,
             signature: row.get(9)?,
-            visibility: Visibility::from_str(&row.get::<_, String>(10).unwrap_or_default()),
+            visibility: Visibility::parse(&row.get::<_, String>(10).unwrap_or_default()),
             docstring: row.get(11)?,
             is_async: row.get(12)?,
             is_static: row.get(13)?,
@@ -306,7 +305,7 @@ impl Database {
             LIMIT ?2
             "#,
         )?;
-        let rows = stmt.query_map(params![node_id, limit as i64], |row| Self::row_to_node(row))?;
+        let rows = stmt.query_map(params![node_id, limit as i64], Self::row_to_node)?;
 
         let mut nodes = Vec::new();
         for row in rows {
@@ -325,7 +324,7 @@ impl Database {
             LIMIT ?2
             "#,
         )?;
-        let rows = stmt.query_map(params![node_id, limit as i64], |row| Self::row_to_node(row))?;
+        let rows = stmt.query_map(params![node_id, limit as i64], Self::row_to_node)?;
 
         let mut nodes = Vec::new();
         for row in rows {
@@ -339,7 +338,7 @@ impl Database {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM edges WHERE source_id = ?1")?;
-        let rows = stmt.query_map(params![node_id], |row| Self::row_to_edge(row))?;
+        let rows = stmt.query_map(params![node_id], Self::row_to_edge)?;
 
         let mut edges = Vec::new();
         for row in rows {
@@ -353,7 +352,7 @@ impl Database {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM edges WHERE target_id = ?1")?;
-        let rows = stmt.query_map(params![node_id], |row| Self::row_to_edge(row))?;
+        let rows = stmt.query_map(params![node_id], Self::row_to_edge)?;
 
         let mut edges = Vec::new();
         for row in rows {
@@ -367,7 +366,7 @@ impl Database {
             id: row.get(0)?,
             source_id: row.get(1)?,
             target_id: row.get(2)?,
-            kind: EdgeKind::from_str(&row.get::<_, String>(3)?).unwrap_or(EdgeKind::References),
+            kind: EdgeKind::parse(&row.get::<_, String>(3)?).unwrap_or(EdgeKind::References),
             file_path: row.get(4)?,
             line: row.get::<_, Option<i64>>(5)?.map(|l| l as u32),
             column: row.get::<_, Option<i64>>(6)?.map(|c| c as u32),
@@ -404,7 +403,7 @@ impl Database {
             Ok(UnresolvedReference {
                 source_node_id: row.get(1)?,
                 reference_name: row.get(2)?,
-                kind: EdgeKind::from_str(&row.get::<_, String>(3)?).unwrap_or(EdgeKind::Calls),
+                kind: EdgeKind::parse(&row.get::<_, String>(3)?).unwrap_or(EdgeKind::Calls),
                 file_path: row.get(4)?,
                 line: row.get::<_, i64>(5)? as u32,
                 column: row.get::<_, i64>(6)? as u32,
@@ -464,7 +463,11 @@ impl Database {
         // Get database file size
         let db_size_bytes: i64 = self
             .conn
-            .query_row("SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", [], |row| row.get(0))
+            .query_row(
+                "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()",
+                [],
+                |row| row.get(0),
+            )
             .unwrap_or(0);
 
         // Get language distribution
@@ -489,7 +492,7 @@ impl Database {
             let kind_str: String = row.get(0)?;
             let count: i64 = row.get(1)?;
             Ok((
-                NodeKind::from_str(&kind_str).unwrap_or(NodeKind::Function),
+                NodeKind::parse(&kind_str).unwrap_or(NodeKind::Function),
                 count as u64,
             ))
         })?;
@@ -702,9 +705,7 @@ mod tests {
         db.insert_node(&create_test_node("my_function", NodeKind::Function))
             .unwrap();
 
-        let results = db
-            .search_nodes("my", Some(NodeKind::Function), 10)
-            .unwrap();
+        let results = db.search_nodes("my", Some(NodeKind::Function), 10).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].kind, NodeKind::Function);
     }

@@ -79,7 +79,9 @@ impl LanguageConfig {
 pub fn get_language(lang: Language) -> Option<TsLanguage> {
     match lang {
         Language::Rust => Some(tree_sitter_rust::LANGUAGE.into()),
-        Language::TypeScript | Language::Tsx => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        Language::TypeScript | Language::Tsx => {
+            Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into())
+        }
         Language::JavaScript | Language::Jsx => Some(tree_sitter_javascript::LANGUAGE.into()),
         Language::Python => Some(tree_sitter_python::LANGUAGE.into()),
         Language::Go => Some(tree_sitter_go::LANGUAGE.into()),
@@ -136,7 +138,12 @@ static RUST_CONFIG: LanguageConfig = LanguageConfig {
 };
 
 static TYPESCRIPT_CONFIG: LanguageConfig = LanguageConfig {
-    function_types: &["function_declaration", "arrow_function", "function_expression", "generator_function_declaration"],
+    function_types: &[
+        "function_declaration",
+        "arrow_function",
+        "function_expression",
+        "generator_function_declaration",
+    ],
     method_types: &["method_definition", "method_signature"],
     class_types: &["class_declaration", "class"],
     struct_types: &[],
@@ -151,7 +158,12 @@ static TYPESCRIPT_CONFIG: LanguageConfig = LanguageConfig {
 };
 
 static JAVASCRIPT_CONFIG: LanguageConfig = LanguageConfig {
-    function_types: &["function_declaration", "arrow_function", "function_expression", "generator_function_declaration"],
+    function_types: &[
+        "function_declaration",
+        "arrow_function",
+        "function_expression",
+        "generator_function_declaration",
+    ],
     method_types: &["method_definition"],
     class_types: &["class_declaration", "class"],
     struct_types: &[],
