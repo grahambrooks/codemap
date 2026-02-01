@@ -8,7 +8,8 @@
 
 Semantic code intelligence MCP server - build knowledge graphs of codebases to enhance AI-assisted code exploration.
 
-codemap is a rust implementation of https://github.com/colbymchenry/codegraph. Why? Ongoing exploration of compiled binary deployment of MCP Servers.
+codemap is a rust implementation of https://github.com/colbymchenry/codegraph. Why? Ongoing exploration of compiled
+binary deployment of MCP Servers.
 
 ## Features
 
