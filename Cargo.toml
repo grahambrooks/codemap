@@ -9,7 +9,7 @@ keywords = ["mcp", "code-analysis", "tree-sitter", "semantic-search"]
 
 [dependencies]
 # MCP protocol
-rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", features = ["server", "macros", "transport-io", "transport-streamable-http-server"] }
+rmcp = { version = "0.14.0", features = ["server", "server", "macros", "transport-io", "transport-streamable-http-server"] }
 
 # HTTP server
 axum = "0.8"
