@@ -267,7 +267,7 @@ impl Database {
             is_async: row.get(12)?,
             is_static: row.get(13)?,
             is_exported: row.get(14)?,
-            language: Language::from_extension(&row.get::<_, String>(15).unwrap_or_default()),
+            language: Language::parse(&row.get::<_, String>(15).unwrap_or_default()),
         })
     }
 
@@ -476,7 +476,7 @@ impl Database {
         let lang_rows = stmt.query_map([], |row| {
             let lang_str: String = row.get(0)?;
             let count: i64 = row.get(1)?;
-            Ok((Language::from_extension(&lang_str), count as u64))
+            Ok((Language::parse(&lang_str), count as u64))
         })?;
         let mut languages = Vec::new();
         for row in lang_rows {
@@ -1010,5 +1010,53 @@ mod tests {
 
         let stats = db.get_stats().unwrap();
         assert_eq!(stats.total_nodes, 0);
+    }
+}
+
+#[cfg(test)]
+mod language_tests {
+    use super::*;
+    use crate::types::FileRecord;
+
+    #[test]
+    fn test_language_roundtrip() {
+        let db = Database::in_memory().unwrap();
+        
+        // First insert a file
+        let file = FileRecord {
+            path: "test.rs".to_string(),
+            content_hash: "abc123".to_string(),
+            language: Language::Rust,
+            size: 100,
+            modified_at: 0,
+            indexed_at: 0,
+            node_count: 1,
+        };
+        db.upsert_file(&file).unwrap();
+        
+        let node = Node {
+            id: 0,
+            kind: NodeKind::Function,
+            name: "test_func".to_string(),
+            qualified_name: None,
+            file_path: "test.rs".to_string(),
+            start_line: 1,
+            end_line: 10,
+            start_column: 0,
+            end_column: 0,
+            signature: Some("fn test_func()".to_string()),
+            visibility: Visibility::Private,
+            docstring: None,
+            is_async: false,
+            is_static: false,
+            is_exported: false,
+            language: Language::Rust,
+        };
+        
+        db.insert_node(&node).unwrap();
+        let retrieved = db.find_node_by_name("test_func").unwrap().unwrap();
+        
+        assert_eq!(retrieved.language, Language::Rust, "Language should be Rust, got {:?}", retrieved.language);
+        assert_eq!(retrieved.visibility, Visibility::Private, "Visibility should be Private, got {:?}", retrieved.visibility);
     }
 }

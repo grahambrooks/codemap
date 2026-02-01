@@ -302,7 +302,23 @@ impl<'a> ExtractionContext<'a> {
             }
         }
 
-        Visibility::Unknown
+        // Check for export keyword (JS/TS)
+        if let Some(parent) = node.parent() {
+            if parent.kind() == "export_statement" {
+                return Visibility::Public;
+            }
+        }
+
+        // Language-specific defaults
+        match self.language {
+            Language::Rust => Visibility::Private,
+            Language::Go | Language::Python => Visibility::Public,
+            Language::TypeScript | Language::JavaScript | Language::Tsx | Language::Jsx => {
+                // In JS/TS, top-level functions without export are module-private
+                Visibility::Private
+            }
+            _ => Visibility::Unknown,
+        }
     }
 
     fn extract_docstring(&self, node: &tree_sitter::Node) -> Option<String> {

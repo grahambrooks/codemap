@@ -203,6 +203,27 @@ impl Language {
         }
     }
 
+    pub fn parse(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "rust" => Language::Rust,
+            "typescript" => Language::TypeScript,
+            "javascript" => Language::JavaScript,
+            "tsx" => Language::Tsx,
+            "jsx" => Language::Jsx,
+            "python" => Language::Python,
+            "go" => Language::Go,
+            "java" => Language::Java,
+            "c" => Language::C,
+            "cpp" => Language::Cpp,
+            "csharp" => Language::CSharp,
+            "php" => Language::Php,
+            "ruby" => Language::Ruby,
+            "swift" => Language::Swift,
+            "kotlin" => Language::Kotlin,
+            _ => Language::Unknown,
+        }
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Language::Rust => "rust",
