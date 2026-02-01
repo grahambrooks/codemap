@@ -82,6 +82,9 @@ fn main() -> Result<()> {
         "help" | "--help" | "-h" => {
             print_usage();
         }
+        "--version" | "-V" | "version" => {
+            print_version();
+        }
         cmd => {
             eprintln!("Unknown command: {}", cmd);
             print_usage();
@@ -116,6 +119,10 @@ EXAMPLES:
     codemap context "add user login" # Build context for implementing login
 "#
     );
+}
+
+fn print_version() {
+    println!("codemap {}", env!("CARGO_PKG_VERSION"));
 }
 
 fn setup_logging() {
