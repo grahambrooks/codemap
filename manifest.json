@@ -7,10 +7,10 @@
   "long_description": "Code Map uses tree-sitter to parse source code and build a knowledge graph of symbols and their relationships. It provides MCP tools for searching symbols, finding callers/callees, analyzing change impact, and building focused context for AI tasks.\n\nSupported languages: Rust, TypeScript, JavaScript, Python, Go, Java, C, C++",
   "author": {
     "name": "Graham",
-    "url": "https://github.com/yourusername"
+    "url": "https://github.com/grahambrooks"
   },
-  "repository": "https://github.com/yourusername/codemap",
-  "homepage": "https://github.com/yourusername/codemap",
+  "repository": "https://github.com/grahambrooks/codemap",
+  "homepage": "https://github.com/grahambrooks/codemap",
   "license": "MIT",
   "keywords": [
     "code-analysis",
