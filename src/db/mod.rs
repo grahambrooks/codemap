@@ -214,8 +214,7 @@ impl Database {
                 nodes.push(row?);
             }
         } else {
-            let rows =
-                stmt.query_map(params![pattern, limit as i64], Self::row_to_node)?;
+            let rows = stmt.query_map(params![pattern, limit as i64], Self::row_to_node)?;
             for row in rows {
                 nodes.push(row?);
             }

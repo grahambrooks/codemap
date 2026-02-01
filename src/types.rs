@@ -417,10 +417,7 @@ mod tests {
     fn test_node_kind_from_str() {
         assert_eq!(NodeKind::parse("function"), Some(NodeKind::Function));
         assert_eq!(NodeKind::parse("class"), Some(NodeKind::Class));
-        assert_eq!(
-            NodeKind::parse("enum_member"),
-            Some(NodeKind::EnumMember)
-        );
+        assert_eq!(NodeKind::parse("enum_member"), Some(NodeKind::EnumMember));
         assert_eq!(NodeKind::parse("invalid"), None);
         assert_eq!(NodeKind::parse(""), None);
     }
