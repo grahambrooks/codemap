@@ -526,3 +526,489 @@ impl Database {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_node(name: &str, kind: NodeKind) -> Node {
+        Node {
+            id: 0,
+            kind,
+            name: name.to_string(),
+            qualified_name: Some(format!("test::{}", name)),
+            file_path: "test.rs".to_string(),
+            start_line: 1,
+            end_line: 10,
+            start_column: 0,
+            end_column: 1,
+            signature: Some(format!("fn {}()", name)),
+            visibility: Visibility::Public,
+            docstring: None,
+            is_async: false,
+            is_static: false,
+            is_exported: true,
+            language: Language::Rust,
+        }
+    }
+
+    fn create_test_file(path: &str) -> FileRecord {
+        FileRecord {
+            path: path.to_string(),
+            content_hash: "abc123".to_string(),
+            language: Language::Rust,
+            size: 1000,
+            modified_at: 1234567890,
+            indexed_at: 1234567890,
+            node_count: 5,
+        }
+    }
+
+    // Database initialization tests
+    #[test]
+    fn test_in_memory_database_creation() {
+        let db = Database::in_memory();
+        assert!(db.is_ok());
+    }
+
+    #[test]
+    fn test_database_stats_empty() {
+        let db = Database::in_memory().unwrap();
+        let stats = db.get_stats().unwrap();
+        assert_eq!(stats.total_files, 0);
+        assert_eq!(stats.total_nodes, 0);
+        assert_eq!(stats.total_edges, 0);
+    }
+
+    // File operations tests
+    #[test]
+    fn test_upsert_and_get_file() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("src/lib.rs");
+
+        db.upsert_file(&file).unwrap();
+        let retrieved = db.get_file("src/lib.rs").unwrap();
+
+        assert!(retrieved.is_some());
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.path, "src/lib.rs");
+        assert_eq!(retrieved.content_hash, "abc123");
+        assert_eq!(retrieved.node_count, 5);
+    }
+
+    #[test]
+    fn test_file_upsert_updates_existing() {
+        let db = Database::in_memory().unwrap();
+        let mut file = create_test_file("src/lib.rs");
+
+        db.upsert_file(&file).unwrap();
+
+        file.content_hash = "updated_hash".to_string();
+        file.node_count = 10;
+        db.upsert_file(&file).unwrap();
+
+        let retrieved = db.get_file("src/lib.rs").unwrap().unwrap();
+        assert_eq!(retrieved.content_hash, "updated_hash");
+        assert_eq!(retrieved.node_count, 10);
+    }
+
+    #[test]
+    fn test_get_nonexistent_file() {
+        let db = Database::in_memory().unwrap();
+        let result = db.get_file("nonexistent.rs").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_needs_reindex_new_file() {
+        let db = Database::in_memory().unwrap();
+        let needs = db.needs_reindex("new_file.rs", "somehash").unwrap();
+        assert!(needs);
+    }
+
+    #[test]
+    fn test_needs_reindex_unchanged_file() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("src/lib.rs");
+        db.upsert_file(&file).unwrap();
+
+        let needs = db.needs_reindex("src/lib.rs", "abc123").unwrap();
+        assert!(!needs);
+    }
+
+    #[test]
+    fn test_needs_reindex_changed_file() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("src/lib.rs");
+        db.upsert_file(&file).unwrap();
+
+        let needs = db.needs_reindex("src/lib.rs", "different_hash").unwrap();
+        assert!(needs);
+    }
+
+    // Node operations tests
+    #[test]
+    fn test_insert_and_get_node() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        let node = create_test_node("my_function", NodeKind::Function);
+        let id = db.insert_node(&node).unwrap();
+
+        let retrieved = db.get_node(id).unwrap();
+        assert!(retrieved.is_some());
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.name, "my_function");
+        assert_eq!(retrieved.kind, NodeKind::Function);
+    }
+
+    #[test]
+    fn test_get_nonexistent_node() {
+        let db = Database::in_memory().unwrap();
+        let result = db.get_node(999).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_search_nodes() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        db.insert_node(&create_test_node("process_data", NodeKind::Function))
+            .unwrap();
+        db.insert_node(&create_test_node("process_input", NodeKind::Function))
+            .unwrap();
+        db.insert_node(&create_test_node("handle_error", NodeKind::Function))
+            .unwrap();
+
+        let results = db.search_nodes("process", None, 10).unwrap();
+        assert_eq!(results.len(), 2);
+
+        let results = db.search_nodes("handle", None, 10).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "handle_error");
+    }
+
+    #[test]
+    fn test_search_nodes_with_kind_filter() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        db.insert_node(&create_test_node("MyClass", NodeKind::Class))
+            .unwrap();
+        db.insert_node(&create_test_node("my_function", NodeKind::Function))
+            .unwrap();
+
+        let results = db
+            .search_nodes("my", Some(NodeKind::Function), 10)
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].kind, NodeKind::Function);
+    }
+
+    #[test]
+    fn test_search_nodes_case_insensitive() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        db.insert_node(&create_test_node("MyFunction", NodeKind::Function))
+            .unwrap();
+
+        let results = db.search_nodes("myfunction", None, 10).unwrap();
+        assert_eq!(results.len(), 1);
+
+        let results = db.search_nodes("MYFUNCTION", None, 10).unwrap();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn test_find_node_by_name() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        db.insert_node(&create_test_node("unique_name", NodeKind::Function))
+            .unwrap();
+
+        let result = db.find_node_by_name("unique_name").unwrap();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().name, "unique_name");
+
+        let result = db.find_node_by_name("nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_nodes_by_file() {
+        let db = Database::in_memory().unwrap();
+        let file1 = create_test_file("file1.rs");
+        let mut file2 = create_test_file("file2.rs");
+        file2.path = "file2.rs".to_string();
+        db.upsert_file(&file1).unwrap();
+        db.upsert_file(&file2).unwrap();
+
+        let mut node1 = create_test_node("func1", NodeKind::Function);
+        node1.file_path = "file1.rs".to_string();
+        let mut node2 = create_test_node("func2", NodeKind::Function);
+        node2.file_path = "file2.rs".to_string();
+
+        db.insert_node(&node1).unwrap();
+        db.insert_node(&node2).unwrap();
+
+        let nodes = db.get_nodes_by_file("file1.rs").unwrap();
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].name, "func1");
+    }
+
+    // Edge operations tests
+    #[test]
+    fn test_insert_edge() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        let id1 = db
+            .insert_node(&create_test_node("caller", NodeKind::Function))
+            .unwrap();
+        let id2 = db
+            .insert_node(&create_test_node("callee", NodeKind::Function))
+            .unwrap();
+
+        let edge = Edge {
+            id: 0,
+            source_id: id1,
+            target_id: id2,
+            kind: EdgeKind::Calls,
+            file_path: Some("test.rs".to_string()),
+            line: Some(5),
+            column: Some(10),
+        };
+
+        let edge_id = db.insert_edge(&edge).unwrap();
+        assert!(edge_id > 0);
+    }
+
+    #[test]
+    fn test_get_callers_and_callees() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        let caller_id = db
+            .insert_node(&create_test_node("caller", NodeKind::Function))
+            .unwrap();
+        let callee_id = db
+            .insert_node(&create_test_node("callee", NodeKind::Function))
+            .unwrap();
+
+        let edge = Edge {
+            id: 0,
+            source_id: caller_id,
+            target_id: callee_id,
+            kind: EdgeKind::Calls,
+            file_path: None,
+            line: None,
+            column: None,
+        };
+        db.insert_edge(&edge).unwrap();
+
+        let callers = db.get_callers(callee_id, 10).unwrap();
+        assert_eq!(callers.len(), 1);
+        assert_eq!(callers[0].name, "caller");
+
+        let callees = db.get_callees(caller_id, 10).unwrap();
+        assert_eq!(callees.len(), 1);
+        assert_eq!(callees[0].name, "callee");
+    }
+
+    #[test]
+    fn test_get_outgoing_and_incoming_edges() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        let id1 = db
+            .insert_node(&create_test_node("node1", NodeKind::Function))
+            .unwrap();
+        let id2 = db
+            .insert_node(&create_test_node("node2", NodeKind::Function))
+            .unwrap();
+
+        let edge = Edge {
+            id: 0,
+            source_id: id1,
+            target_id: id2,
+            kind: EdgeKind::Calls,
+            file_path: None,
+            line: None,
+            column: None,
+        };
+        db.insert_edge(&edge).unwrap();
+
+        let outgoing = db.get_outgoing_edges(id1).unwrap();
+        assert_eq!(outgoing.len(), 1);
+        assert_eq!(outgoing[0].target_id, id2);
+
+        let incoming = db.get_incoming_edges(id2).unwrap();
+        assert_eq!(incoming.len(), 1);
+        assert_eq!(incoming[0].source_id, id1);
+    }
+
+    // Unresolved reference tests
+    #[test]
+    fn test_unresolved_refs() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        let node_id = db
+            .insert_node(&create_test_node("caller", NodeKind::Function))
+            .unwrap();
+
+        let uref = UnresolvedReference {
+            source_node_id: node_id,
+            reference_name: "some_function".to_string(),
+            kind: EdgeKind::Calls,
+            file_path: "test.rs".to_string(),
+            line: 5,
+            column: 10,
+        };
+
+        db.insert_unresolved_ref(&uref).unwrap();
+
+        let refs = db.get_unresolved_refs().unwrap();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].reference_name, "some_function");
+    }
+
+    #[test]
+    fn test_resolve_references() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        let caller_id = db
+            .insert_node(&create_test_node("caller", NodeKind::Function))
+            .unwrap();
+        let _callee_id = db
+            .insert_node(&create_test_node("target_func", NodeKind::Function))
+            .unwrap();
+
+        let uref = UnresolvedReference {
+            source_node_id: caller_id,
+            reference_name: "target_func".to_string(),
+            kind: EdgeKind::Calls,
+            file_path: "test.rs".to_string(),
+            line: 5,
+            column: 10,
+        };
+        db.insert_unresolved_ref(&uref).unwrap();
+
+        let resolved = db.resolve_references().unwrap();
+        assert_eq!(resolved, 1);
+
+        // Check that the edge was created
+        let outgoing = db.get_outgoing_edges(caller_id).unwrap();
+        assert_eq!(outgoing.len(), 1);
+
+        // Check that unresolved refs are cleared
+        let refs = db.get_unresolved_refs().unwrap();
+        assert!(refs.is_empty());
+    }
+
+    // Delete file tests
+    #[test]
+    fn test_delete_file_cascade() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        let id1 = db
+            .insert_node(&create_test_node("func1", NodeKind::Function))
+            .unwrap();
+        let id2 = db
+            .insert_node(&create_test_node("func2", NodeKind::Function))
+            .unwrap();
+
+        let edge = Edge {
+            id: 0,
+            source_id: id1,
+            target_id: id2,
+            kind: EdgeKind::Calls,
+            file_path: Some("test.rs".to_string()),
+            line: None,
+            column: None,
+        };
+        db.insert_edge(&edge).unwrap();
+
+        db.delete_file("test.rs").unwrap();
+
+        // File should be gone
+        assert!(db.get_file("test.rs").unwrap().is_none());
+
+        // Nodes should be gone
+        assert!(db.get_node(id1).unwrap().is_none());
+        assert!(db.get_node(id2).unwrap().is_none());
+
+        // Stats should show zeros
+        let stats = db.get_stats().unwrap();
+        assert_eq!(stats.total_files, 0);
+        assert_eq!(stats.total_nodes, 0);
+        assert_eq!(stats.total_edges, 0);
+    }
+
+    // Statistics tests
+    #[test]
+    fn test_get_stats() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        db.insert_node(&create_test_node("func1", NodeKind::Function))
+            .unwrap();
+        db.insert_node(&create_test_node("func2", NodeKind::Function))
+            .unwrap();
+        db.insert_node(&create_test_node("MyClass", NodeKind::Class))
+            .unwrap();
+
+        let stats = db.get_stats().unwrap();
+        assert_eq!(stats.total_files, 1);
+        assert_eq!(stats.total_nodes, 3);
+        assert_eq!(stats.total_edges, 0);
+    }
+
+    // Transaction tests
+    #[test]
+    fn test_transaction_commit() {
+        let mut db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        db.begin_transaction().unwrap();
+        db.insert_node(&create_test_node("func1", NodeKind::Function))
+            .unwrap();
+        db.commit().unwrap();
+
+        let stats = db.get_stats().unwrap();
+        assert_eq!(stats.total_nodes, 1);
+    }
+
+    #[test]
+    fn test_transaction_rollback() {
+        let mut db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.upsert_file(&file).unwrap();
+
+        db.begin_transaction().unwrap();
+        db.insert_node(&create_test_node("func1", NodeKind::Function))
+            .unwrap();
+        db.rollback().unwrap();
+
+        let stats = db.get_stats().unwrap();
+        assert_eq!(stats.total_nodes, 0);
+    }
+}

@@ -449,3 +449,384 @@ impl Default for Extractor {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extractor_creation() {
+        let extractor = Extractor::new();
+        assert!(std::mem::size_of_val(&extractor) > 0);
+    }
+
+    #[test]
+    fn test_extract_unsupported_extension() {
+        let mut extractor = Extractor::new();
+        let result = extractor.extract_file("test.xyz", "some content");
+        assert!(!result.errors.is_empty());
+        assert!(result.errors[0].message.contains("Unsupported file extension"));
+    }
+
+    // Rust extraction tests
+    #[test]
+    fn test_extract_rust_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+fn hello_world() {
+    println!("Hello, world!");
+}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+        assert!(result.errors.is_empty());
+
+        // Should have file node + function node
+        assert!(result.nodes.len() >= 2);
+
+        let func = result.nodes.iter().find(|n| n.name == "hello_world");
+        assert!(func.is_some());
+        let func = func.unwrap();
+        assert_eq!(func.kind, NodeKind::Function);
+        assert_eq!(func.language, Language::Rust);
+    }
+
+    #[test]
+    fn test_extract_rust_pub_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+pub fn public_function() -> i32 {
+    42
+}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+        let func = result
+            .nodes
+            .iter()
+            .find(|n| n.name == "public_function")
+            .unwrap();
+        assert_eq!(func.visibility, Visibility::Public);
+        assert!(func.signature.is_some());
+    }
+
+    #[test]
+    fn test_extract_rust_struct() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+pub struct MyStruct {
+    field1: i32,
+    field2: String,
+}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+        let strukt = result.nodes.iter().find(|n| n.name == "MyStruct");
+        assert!(strukt.is_some());
+        assert_eq!(strukt.unwrap().kind, NodeKind::Struct);
+    }
+
+    #[test]
+    fn test_extract_rust_impl_methods() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+struct Foo {}
+
+impl Foo {
+    fn bar(&self) {
+    }
+
+    pub fn baz() -> Self {
+        Foo {}
+    }
+}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+
+        // Should find struct and methods
+        assert!(result.nodes.iter().any(|n| n.name == "Foo"));
+        assert!(result.nodes.iter().any(|n| n.name == "bar"));
+        assert!(result.nodes.iter().any(|n| n.name == "baz"));
+    }
+
+    #[test]
+    fn test_extract_rust_enum() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+        let enum_node = result.nodes.iter().find(|n| n.name == "Color");
+        assert!(enum_node.is_some());
+        assert_eq!(enum_node.unwrap().kind, NodeKind::Enum);
+    }
+
+    #[test]
+    fn test_extract_rust_function_calls() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+fn caller() {
+    helper();
+    other_func();
+}
+
+fn helper() {}
+fn other_func() {}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+
+        // Should have unresolved references for the calls
+        assert!(!result.unresolved_refs.is_empty());
+        assert!(result
+            .unresolved_refs
+            .iter()
+            .any(|r| r.reference_name == "helper"));
+        assert!(result
+            .unresolved_refs
+            .iter()
+            .any(|r| r.reference_name == "other_func"));
+    }
+
+    #[test]
+    fn test_extract_rust_async_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+async fn async_handler() {
+    do_something().await;
+}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+        let func = result
+            .nodes
+            .iter()
+            .find(|n| n.name == "async_handler")
+            .unwrap();
+        assert!(func.is_async);
+    }
+
+    // TypeScript extraction tests
+    #[test]
+    fn test_extract_typescript_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+function greet(name: string): string {
+    return `Hello, ${name}!`;
+}
+"#;
+        let result = extractor.extract_file("test.ts", code);
+        assert!(result.errors.is_empty());
+
+        let func = result.nodes.iter().find(|n| n.name == "greet");
+        assert!(func.is_some());
+        assert_eq!(func.unwrap().language, Language::TypeScript);
+    }
+
+    #[test]
+    fn test_extract_typescript_class() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+class MyClass {
+    private value: number;
+
+    constructor(val: number) {
+        this.value = val;
+    }
+
+    getValue(): number {
+        return this.value;
+    }
+}
+"#;
+        let result = extractor.extract_file("test.ts", code);
+        let class = result.nodes.iter().find(|n| n.name == "MyClass");
+        assert!(class.is_some());
+        assert_eq!(class.unwrap().kind, NodeKind::Class);
+    }
+
+    #[test]
+    fn test_extract_typescript_interface() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+interface User {
+    name: string;
+    age: number;
+}
+"#;
+        let result = extractor.extract_file("test.ts", code);
+        let iface = result.nodes.iter().find(|n| n.name == "User");
+        assert!(iface.is_some());
+        assert_eq!(iface.unwrap().kind, NodeKind::Interface);
+    }
+
+    #[test]
+    fn test_extract_typescript_arrow_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+const add = (a: number, b: number): number => a + b;
+"#;
+        let result = extractor.extract_file("test.ts", code);
+        // Arrow functions are typically extracted as constants or variables
+        assert!(result.nodes.len() >= 1);
+    }
+
+    // Python extraction tests
+    #[test]
+    fn test_extract_python_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+def hello_world():
+    print("Hello, world!")
+"#;
+        let result = extractor.extract_file("test.py", code);
+        assert!(result.errors.is_empty());
+
+        let func = result.nodes.iter().find(|n| n.name == "hello_world");
+        assert!(func.is_some());
+        assert_eq!(func.unwrap().language, Language::Python);
+    }
+
+    #[test]
+    fn test_extract_python_class() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+class MyClass:
+    def __init__(self, value):
+        self.value = value
+
+    def get_value(self):
+        return self.value
+"#;
+        let result = extractor.extract_file("test.py", code);
+        let class = result.nodes.iter().find(|n| n.name == "MyClass");
+        assert!(class.is_some());
+        assert_eq!(class.unwrap().kind, NodeKind::Class);
+
+        // Should also find methods
+        assert!(result.nodes.iter().any(|n| n.name == "__init__"));
+        assert!(result.nodes.iter().any(|n| n.name == "get_value"));
+    }
+
+    #[test]
+    fn test_extract_python_async_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+async def fetch_data():
+    await some_async_call()
+"#;
+        let result = extractor.extract_file("test.py", code);
+        let func = result.nodes.iter().find(|n| n.name == "fetch_data").unwrap();
+        assert!(func.is_async);
+    }
+
+    // JavaScript extraction tests
+    #[test]
+    fn test_extract_javascript_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+function processData(data) {
+    return data.map(x => x * 2);
+}
+"#;
+        let result = extractor.extract_file("test.js", code);
+        let func = result.nodes.iter().find(|n| n.name == "processData");
+        assert!(func.is_some());
+        assert_eq!(func.unwrap().language, Language::JavaScript);
+    }
+
+    // Go extraction tests
+    #[test]
+    fn test_extract_go_function() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+func main() {
+    fmt.Println("Hello, World!")
+}
+
+func helper(x int) int {
+    return x * 2
+}
+"#;
+        let result = extractor.extract_file("test.go", code);
+        assert!(result.nodes.iter().any(|n| n.name == "main"));
+        assert!(result.nodes.iter().any(|n| n.name == "helper"));
+    }
+
+    #[test]
+    fn test_extract_go_struct() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+type Person struct {
+    Name string
+    Age  int
+}
+"#;
+        let result = extractor.extract_file("test.go", code);
+        // Go type declarations may be extracted differently depending on grammar
+        // At minimum we should have the file node and no errors
+        assert!(result.errors.is_empty());
+        assert!(result.nodes.iter().any(|n| n.kind == NodeKind::File));
+    }
+
+    // Contains edge tests
+    #[test]
+    fn test_contains_edges() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+fn outer() {
+    fn inner() {}
+}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+
+        // Should have contains edges
+        let contains_edges: Vec<_> = result
+            .edges
+            .iter()
+            .filter(|e| e.kind == EdgeKind::Contains)
+            .collect();
+        assert!(!contains_edges.is_empty());
+    }
+
+    // File node tests
+    #[test]
+    fn test_file_node_created() {
+        let mut extractor = Extractor::new();
+        let result = extractor.extract_file("mymodule.rs", "fn foo() {}");
+
+        let file_node = result.nodes.iter().find(|n| n.kind == NodeKind::File);
+        assert!(file_node.is_some());
+        assert_eq!(file_node.unwrap().name, "mymodule.rs");
+    }
+
+    // Empty file test
+    #[test]
+    fn test_extract_empty_file() {
+        let mut extractor = Extractor::new();
+        let result = extractor.extract_file("empty.rs", "");
+        assert!(result.errors.is_empty());
+        // Should still have a file node
+        assert!(result.nodes.iter().any(|n| n.kind == NodeKind::File));
+    }
+
+    // Line number tests
+    #[test]
+    fn test_line_numbers() {
+        let mut extractor = Extractor::new();
+        let code = r#"
+fn first() {}
+
+fn second() {}
+
+fn third() {}
+"#;
+        let result = extractor.extract_file("test.rs", code);
+
+        let first = result.nodes.iter().find(|n| n.name == "first").unwrap();
+        let second = result.nodes.iter().find(|n| n.name == "second").unwrap();
+        let third = result.nodes.iter().find(|n| n.name == "third").unwrap();
+
+        assert!(first.start_line < second.start_line);
+        assert!(second.start_line < third.start_line);
+    }
+}

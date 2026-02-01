@@ -398,3 +398,253 @@ pub struct CodeBlock {
     pub context_before: Option<String>,
     pub context_after: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NodeKind tests
+    #[test]
+    fn test_node_kind_as_str() {
+        assert_eq!(NodeKind::Function.as_str(), "function");
+        assert_eq!(NodeKind::Class.as_str(), "class");
+        assert_eq!(NodeKind::Method.as_str(), "method");
+        assert_eq!(NodeKind::EnumMember.as_str(), "enum_member");
+        assert_eq!(NodeKind::TypeAlias.as_str(), "type_alias");
+    }
+
+    #[test]
+    fn test_node_kind_from_str() {
+        assert_eq!(NodeKind::from_str("function"), Some(NodeKind::Function));
+        assert_eq!(NodeKind::from_str("class"), Some(NodeKind::Class));
+        assert_eq!(NodeKind::from_str("enum_member"), Some(NodeKind::EnumMember));
+        assert_eq!(NodeKind::from_str("invalid"), None);
+        assert_eq!(NodeKind::from_str(""), None);
+    }
+
+    #[test]
+    fn test_node_kind_roundtrip() {
+        let kinds = [
+            NodeKind::File,
+            NodeKind::Module,
+            NodeKind::Class,
+            NodeKind::Struct,
+            NodeKind::Interface,
+            NodeKind::Trait,
+            NodeKind::Protocol,
+            NodeKind::Function,
+            NodeKind::Method,
+            NodeKind::Property,
+            NodeKind::Field,
+            NodeKind::Variable,
+            NodeKind::Constant,
+            NodeKind::Enum,
+            NodeKind::EnumMember,
+            NodeKind::TypeAlias,
+            NodeKind::Namespace,
+            NodeKind::Parameter,
+            NodeKind::Import,
+            NodeKind::Export,
+            NodeKind::Route,
+            NodeKind::Component,
+        ];
+
+        for kind in kinds {
+            let s = kind.as_str();
+            let parsed = NodeKind::from_str(s);
+            assert_eq!(parsed, Some(kind), "Roundtrip failed for {:?}", kind);
+        }
+    }
+
+    // EdgeKind tests
+    #[test]
+    fn test_edge_kind_as_str() {
+        assert_eq!(EdgeKind::Calls.as_str(), "calls");
+        assert_eq!(EdgeKind::Contains.as_str(), "contains");
+        assert_eq!(EdgeKind::TypeOf.as_str(), "type_of");
+    }
+
+    #[test]
+    fn test_edge_kind_from_str() {
+        assert_eq!(EdgeKind::from_str("calls"), Some(EdgeKind::Calls));
+        assert_eq!(EdgeKind::from_str("contains"), Some(EdgeKind::Contains));
+        assert_eq!(EdgeKind::from_str("type_of"), Some(EdgeKind::TypeOf));
+        assert_eq!(EdgeKind::from_str("invalid"), None);
+    }
+
+    #[test]
+    fn test_edge_kind_roundtrip() {
+        let kinds = [
+            EdgeKind::Contains,
+            EdgeKind::Calls,
+            EdgeKind::Imports,
+            EdgeKind::Exports,
+            EdgeKind::Extends,
+            EdgeKind::Implements,
+            EdgeKind::References,
+            EdgeKind::TypeOf,
+            EdgeKind::Returns,
+            EdgeKind::Instantiates,
+            EdgeKind::Overrides,
+            EdgeKind::Decorates,
+        ];
+
+        for kind in kinds {
+            let s = kind.as_str();
+            let parsed = EdgeKind::from_str(s);
+            assert_eq!(parsed, Some(kind), "Roundtrip failed for {:?}", kind);
+        }
+    }
+
+    // Language tests
+    #[test]
+    fn test_language_from_extension() {
+        assert_eq!(Language::from_extension("rs"), Language::Rust);
+        assert_eq!(Language::from_extension("ts"), Language::TypeScript);
+        assert_eq!(Language::from_extension("tsx"), Language::Tsx);
+        assert_eq!(Language::from_extension("js"), Language::JavaScript);
+        assert_eq!(Language::from_extension("mjs"), Language::JavaScript);
+        assert_eq!(Language::from_extension("cjs"), Language::JavaScript);
+        assert_eq!(Language::from_extension("jsx"), Language::Jsx);
+        assert_eq!(Language::from_extension("py"), Language::Python);
+        assert_eq!(Language::from_extension("pyi"), Language::Python);
+        assert_eq!(Language::from_extension("go"), Language::Go);
+        assert_eq!(Language::from_extension("java"), Language::Java);
+        assert_eq!(Language::from_extension("c"), Language::C);
+        assert_eq!(Language::from_extension("h"), Language::C);
+        assert_eq!(Language::from_extension("cpp"), Language::Cpp);
+        assert_eq!(Language::from_extension("cc"), Language::Cpp);
+        assert_eq!(Language::from_extension("hpp"), Language::Cpp);
+        assert_eq!(Language::from_extension("cs"), Language::CSharp);
+        assert_eq!(Language::from_extension("php"), Language::Php);
+        assert_eq!(Language::from_extension("rb"), Language::Ruby);
+        assert_eq!(Language::from_extension("swift"), Language::Swift);
+        assert_eq!(Language::from_extension("kt"), Language::Kotlin);
+        assert_eq!(Language::from_extension("kts"), Language::Kotlin);
+        assert_eq!(Language::from_extension("unknown"), Language::Unknown);
+        assert_eq!(Language::from_extension(""), Language::Unknown);
+    }
+
+    #[test]
+    fn test_language_from_extension_case_insensitive() {
+        assert_eq!(Language::from_extension("RS"), Language::Rust);
+        assert_eq!(Language::from_extension("Ts"), Language::TypeScript);
+        assert_eq!(Language::from_extension("PY"), Language::Python);
+    }
+
+    #[test]
+    fn test_language_as_str() {
+        assert_eq!(Language::Rust.as_str(), "rust");
+        assert_eq!(Language::TypeScript.as_str(), "typescript");
+        assert_eq!(Language::Cpp.as_str(), "cpp");
+        assert_eq!(Language::Unknown.as_str(), "unknown");
+    }
+
+    // Visibility tests
+    #[test]
+    fn test_visibility_from_str() {
+        assert_eq!(Visibility::from_str("public"), Visibility::Public);
+        assert_eq!(Visibility::from_str("pub"), Visibility::Public);
+        assert_eq!(Visibility::from_str("private"), Visibility::Private);
+        assert_eq!(Visibility::from_str("priv"), Visibility::Private);
+        assert_eq!(Visibility::from_str("protected"), Visibility::Protected);
+        assert_eq!(Visibility::from_str("internal"), Visibility::Internal);
+        assert_eq!(Visibility::from_str("unknown"), Visibility::Unknown);
+        assert_eq!(Visibility::from_str(""), Visibility::Unknown);
+    }
+
+    #[test]
+    fn test_visibility_as_str() {
+        assert_eq!(Visibility::Public.as_str(), "public");
+        assert_eq!(Visibility::Private.as_str(), "private");
+        assert_eq!(Visibility::Protected.as_str(), "protected");
+        assert_eq!(Visibility::Internal.as_str(), "internal");
+        assert_eq!(Visibility::Unknown.as_str(), "unknown");
+    }
+
+    // TraversalOptions tests
+    #[test]
+    fn test_traversal_options_default() {
+        let opts = TraversalOptions::default();
+        assert_eq!(opts.max_depth, 2);
+        assert_eq!(opts.limit, 50);
+        assert!(opts.edge_kinds.is_none());
+        assert!(opts.node_kinds.is_none());
+    }
+
+    // Node construction test
+    #[test]
+    fn test_node_creation() {
+        let node = Node {
+            id: 1,
+            kind: NodeKind::Function,
+            name: "test_fn".to_string(),
+            qualified_name: Some("module::test_fn".to_string()),
+            file_path: "src/lib.rs".to_string(),
+            start_line: 10,
+            end_line: 20,
+            start_column: 0,
+            end_column: 1,
+            signature: Some("fn test_fn() -> bool".to_string()),
+            visibility: Visibility::Public,
+            docstring: Some("A test function".to_string()),
+            is_async: false,
+            is_static: false,
+            is_exported: true,
+            language: Language::Rust,
+        };
+
+        assert_eq!(node.name, "test_fn");
+        assert_eq!(node.kind, NodeKind::Function);
+        assert_eq!(node.language, Language::Rust);
+    }
+
+    // Edge construction test
+    #[test]
+    fn test_edge_creation() {
+        let edge = Edge {
+            id: 1,
+            source_id: 10,
+            target_id: 20,
+            kind: EdgeKind::Calls,
+            file_path: Some("src/lib.rs".to_string()),
+            line: Some(15),
+            column: Some(4),
+        };
+
+        assert_eq!(edge.source_id, 10);
+        assert_eq!(edge.target_id, 20);
+        assert_eq!(edge.kind, EdgeKind::Calls);
+    }
+
+    // Serialization tests
+    #[test]
+    fn test_node_kind_serialization() {
+        let kind = NodeKind::Function;
+        let json = serde_json::to_string(&kind).unwrap();
+        assert_eq!(json, "\"function\"");
+
+        let parsed: NodeKind = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, NodeKind::Function);
+    }
+
+    #[test]
+    fn test_edge_kind_serialization() {
+        let kind = EdgeKind::Calls;
+        let json = serde_json::to_string(&kind).unwrap();
+        assert_eq!(json, "\"calls\"");
+
+        let parsed: EdgeKind = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, EdgeKind::Calls);
+    }
+
+    #[test]
+    fn test_language_serialization() {
+        let lang = Language::TypeScript;
+        let json = serde_json::to_string(&lang).unwrap();
+        assert_eq!(json, "\"typescript\"");
+
+        let parsed: Language = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, Language::TypeScript);
+    }
+}
