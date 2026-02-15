@@ -52,7 +52,7 @@ pub fn handle_definition(db: &Database, project_root: &str, req: &DefinitionRequ
         Err(e) => return format!("Error: {}", e),
     };
 
-    let context_lines = req.context_lines.unwrap_or(DEFAULT_CONTEXT_LINES as u32) as usize;
+    let context_lines = req.context_lines.unwrap_or(DEFAULT_CONTEXT_LINES) as usize;
 
     // Read the source file
     let file_path = Path::new(project_root).join(&node.file_path);
@@ -146,8 +146,7 @@ pub fn handle_references(db: &Database, req: &SymbolRequest) -> String {
     );
 
     // Group by edge kind
-    let mut by_kind: std::collections::HashMap<EdgeKind, Vec<_>> =
-        std::collections::HashMap::new();
+    let mut by_kind: std::collections::HashMap<EdgeKind, Vec<_>> = std::collections::HashMap::new();
     for edge in &edges {
         by_kind.entry(edge.kind).or_default().push(edge);
     }

@@ -688,7 +688,7 @@ const add = (a: number, b: number): number => a + b;
 "#;
         let result = extractor.extract_file("test.ts", code);
         // Arrow functions are typically extracted as constants or variables
-        assert!(result.nodes.len() >= 1);
+        assert!(!result.nodes.is_empty());
     }
 
     // Python extraction tests

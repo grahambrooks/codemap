@@ -20,9 +20,11 @@ Quick reference for AI agents working in this Rust MCP server repository.
 **Key Features**: Fast symbol search, impact analysis, call graph navigation, AI context building
 
 **Module Structure**:
-- `main.rs`: CLI entry, command parsing
+- `main.rs`: CLI entry, command routing (~126 lines)
+- `server.rs`: MCP server startup (stdio/HTTP)
 - `lib.rs`: Core indexing, file walking
 - `types.rs`: Node, Edge, Language enums
+- `cli/`: Command implementations, DB utilities
 - `db/`: SQLite CRUD, queries, transactions
 - `extraction/`: Tree-sitter parsing, symbol detection
 - `graph/`: Traversal algorithms (callers, callees, impact)

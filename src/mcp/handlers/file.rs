@@ -20,8 +20,7 @@ pub fn handle_file(db: &Database, req: &FileRequest) -> String {
     output.push_str(&format!("Found {} symbols:\n\n", nodes.len()));
 
     // Group by kind for better readability
-    let mut by_kind: std::collections::HashMap<String, Vec<_>> =
-        std::collections::HashMap::new();
+    let mut by_kind: std::collections::HashMap<String, Vec<_>> = std::collections::HashMap::new();
     for node in &nodes {
         by_kind
             .entry(node.kind.as_str().to_string())

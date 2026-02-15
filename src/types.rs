@@ -93,10 +93,11 @@ impl NodeKind {
 }
 
 /// Represents the kind of relationship between nodes
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum EdgeKind {
     /// Parent contains child (e.g., class contains method)
+    #[default]
     Contains,
     /// Source calls target function/method
     Calls,
@@ -310,12 +311,13 @@ pub struct Node {
     pub language: Language,
 }
 
-/// A relationship between two nodes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Represents a relationship/edge between code symbols
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Edge {
     pub id: i64,
     pub source_id: i64,
     pub target_id: i64,
+    #[serde(default)]
     pub kind: EdgeKind,
     pub file_path: Option<String>,
     pub line: Option<u32>,

@@ -39,4 +39,3 @@ pub fn format_node_simple(node: &Node) -> String {
 pub fn normalize_path(path: &str) -> &str {
     path.trim_start_matches("./")
 }
-

@@ -299,7 +299,7 @@ mod tests {
             indexed_at: 0,
             node_count: 0,
         };
-        db.upsert_file(&file).unwrap();
+        db.insert_or_update_file(&file).unwrap();
         db
     }
 

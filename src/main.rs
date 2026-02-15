@@ -13,7 +13,7 @@ mod server;
 use std::env;
 
 use anyhow::Result;
-use tracing::{Level, info};
+use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
 use codemap::cli::{context_command, index_command, search_command, status_command};
@@ -110,7 +110,6 @@ EXAMPLES:
     );
 }
 
-
 fn print_version() {
     println!("codemap {}", env!("CARGO_PKG_VERSION"));
 }
@@ -118,15 +117,6 @@ fn print_version() {
 fn setup_logging() {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
-        .with_target(false)
-        .with_writer(std::io::stderr)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).ok();
-}
-
-fn setup_debug_logging() {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
         .with_target(false)
         .with_writer(std::io::stderr)
         .finish();

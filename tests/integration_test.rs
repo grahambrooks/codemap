@@ -5,7 +5,7 @@
 use codemap::db::Database;
 use codemap::extraction::Extractor;
 use codemap::graph::Graph;
-use codemap::types::{FileRecord, Language, NodeKind};
+use codemap::types::{EdgeKind, FileRecord, Language, NodeKind};
 use tempfile::tempdir;
 
 /// Helper to set up a test database with indexed code
@@ -27,7 +27,7 @@ fn setup_indexed_db(code: &str, filename: &str) -> Database {
         indexed_at: 0,
         node_count: 0,
     };
-    db.upsert_file(&file).unwrap();
+    db.insert_or_update_file(&file).unwrap();
 
     // Extract symbols
     let mut extractor = Extractor::new();
@@ -250,7 +250,7 @@ fn test_database_persistence() {
             indexed_at: 0,
             node_count: 1,
         };
-        db.upsert_file(&file).unwrap();
+        db.insert_or_update_file(&file).unwrap();
 
         let mut extractor = Extractor::new();
         let result = extractor.extract_file("test.rs", "fn hello() {}");
@@ -285,7 +285,7 @@ fn test_incremental_indexing() {
         indexed_at: 0,
         node_count: 0,
     };
-    db.upsert_file(&file1).unwrap();
+    db.insert_or_update_file(&file1).unwrap();
 
     // Check that file doesn't need reindexing with same hash
     assert!(!db.needs_reindex("module.rs", "hash_v1").unwrap());
@@ -312,7 +312,7 @@ fn test_multi_file_references() {
             indexed_at: 0,
             node_count: 0,
         };
-        db.upsert_file(&file).unwrap();
+        db.insert_or_update_file(&file).unwrap();
     }
 
     // Extract and insert nodes from both files
@@ -381,7 +381,7 @@ fn test_search_with_limit() {
         indexed_at: 0,
         node_count: 0,
     };
-    db.upsert_file(&file).unwrap();
+    db.insert_or_update_file(&file).unwrap();
 
     // Insert many similar nodes
     let mut extractor = Extractor::new();
@@ -402,4 +402,268 @@ fn test_search_with_limit() {
 
     let results = db.search_nodes("process", None, 100).unwrap();
     assert_eq!(results.len(), 20);
+}
+
+#[test]
+fn test_large_codebase_simulation() {
+    let db = Database::in_memory().unwrap();
+
+    // Simulate a large codebase with interdependent files
+    let file_a = FileRecord {
+        path: "a.rs".to_string(),
+        content_hash: "hash_a".to_string(),
+        language: Language::Rust,
+        size: 500,
+        modified_at: 0,
+        indexed_at: 0,
+        node_count: 0,
+    };
+    db.insert_or_update_file(&file_a).unwrap();
+
+    let file_b = FileRecord {
+        path: "b.rs".to_string(),
+        content_hash: "hash_b".to_string(),
+        language: Language::Rust,
+        size: 600,
+        modified_at: 0,
+        indexed_at: 0,
+        node_count: 0,
+    };
+    db.insert_or_update_file(&file_b).unwrap();
+
+    let file_c = FileRecord {
+        path: "c.rs".to_string(),
+        content_hash: "hash_c".to_string(),
+        language: Language::Rust,
+        size: 700,
+        modified_at: 0,
+        indexed_at: 0,
+        node_count: 0,
+    };
+    db.insert_or_update_file(&file_c).unwrap();
+
+    // Extract and insert nodes for each file
+    let mut extractor = Extractor::new();
+    let code_a = "pub fn a() { b(); }";
+    let code_b = "pub fn b() { c(); }";
+    let code_c = "pub fn c() { a(); }";
+
+    let result_a = extractor.extract_file("a.rs", code_a);
+    let mut node_id_a = None;
+    for node in result_a.nodes {
+        let id = db.insert_node(&node).unwrap();
+        if node.kind == NodeKind::Function && node.name == "a" {
+            node_id_a = Some(id);
+        }
+    }
+    let node_id_a = node_id_a.expect("Function 'a' not found");
+
+    let result_b = extractor.extract_file("b.rs", code_b);
+    let mut node_id_b = None;
+    for node in result_b.nodes {
+        let id = db.insert_node(&node).unwrap();
+        if node.kind == NodeKind::Function && node.name == "b" {
+            node_id_b = Some(id);
+        }
+    }
+    let node_id_b = node_id_b.expect("Function 'b' not found");
+
+    let result_c = extractor.extract_file("c.rs", code_c);
+    let mut node_id_c = None;
+    for node in result_c.nodes {
+        let id = db.insert_node(&node).unwrap();
+        if node.kind == NodeKind::Function && node.name == "c" {
+            node_id_c = Some(id);
+        }
+    }
+    let node_id_c = node_id_c.expect("Function 'c' not found");
+
+    // Manually create edges to simulate cross-file calls
+    let edge_ab = codemap::types::Edge {
+        id: 0,
+        source_id: node_id_a,
+        target_id: node_id_b,
+        kind: EdgeKind::Calls,
+        file_path: Some("a.rs".to_string()),
+        line: None,
+        column: None,
+    };
+    db.insert_edge(&edge_ab).unwrap();
+
+    let edge_bc = codemap::types::Edge {
+        id: 0,
+        source_id: node_id_b,
+        target_id: node_id_c,
+        kind: EdgeKind::Calls,
+        file_path: Some("b.rs".to_string()),
+        line: None,
+        column: None,
+    };
+    db.insert_edge(&edge_bc).unwrap();
+
+    let edge_ca = codemap::types::Edge {
+        id: 0,
+        source_id: node_id_c,
+        target_id: node_id_a,
+        kind: EdgeKind::Calls,
+        file_path: Some("c.rs".to_string()),
+        line: None,
+        column: None,
+    };
+    db.insert_edge(&edge_ca).unwrap();
+
+    // Resolve references across the codebase (none to resolve since edges are already created)
+    let resolved = db.resolve_references().unwrap();
+    // No unresolved references in this test since we created edges directly
+    assert_eq!(resolved, 0);
+
+    // Perform impact analysis on an exported function
+    let graph = Graph::new(&db);
+    let analysis = graph.analyze_impact("a", 3).unwrap();
+
+    assert!(analysis.root.is_some());
+    assert_eq!(analysis.root.as_ref().unwrap().name, "a");
+    assert!(!analysis.direct_callers.is_empty());
+    assert!(analysis.total_impact >= 1);
+}
+
+#[test]
+fn test_incremental_reindexing() {
+    let db = Database::in_memory().unwrap();
+
+    // Initial indexing
+    let file = FileRecord {
+        path: "module.rs".to_string(),
+        content_hash: "hash_v1".to_string(),
+        language: Language::Rust,
+        size: 100,
+        modified_at: 0,
+        indexed_at: 0,
+        node_count: 0,
+    };
+    db.insert_or_update_file(&file).unwrap();
+
+    // Simulate a change by updating the content hash
+    let updated_file = FileRecord {
+        path: "module.rs".to_string(),
+        content_hash: "hash_v2".to_string(),
+        language: Language::Rust,
+        size: 100,
+        modified_at: 1,
+        indexed_at: 0,
+        node_count: 0,
+    };
+    db.insert_or_update_file(&updated_file).unwrap();
+
+    // Ensure the file is NOT marked for reindexing when hash matches
+    assert!(!db.needs_reindex("module.rs", "hash_v2").unwrap());
+
+    // But IS marked for reindexing when hash differs
+    assert!(db.needs_reindex("module.rs", "hash_v3").unwrap());
+}
+
+#[test]
+fn test_cross_file_references() {
+    let db = Database::in_memory().unwrap();
+
+    // Set up two files
+    for path in ["file1.rs", "file2.rs"] {
+        let file = FileRecord {
+            path: path.to_string(),
+            content_hash: "hash".to_string(),
+            language: Language::Rust,
+            size: 100,
+            modified_at: 0,
+            indexed_at: 0,
+            node_count: 0,
+        };
+        db.insert_or_update_file(&file).unwrap();
+    }
+
+    // Extract and insert nodes from both files
+    let mut extractor = Extractor::new();
+
+    let result1 = extractor.extract_file("file1.rs", "fn shared_helper() {}");
+    let mut id_map1 = std::collections::HashMap::new();
+    for mut node in result1.nodes {
+        let old_id = node.id;
+        node.id = 0;
+        let new_id = db.insert_node(&node).unwrap();
+        id_map1.insert(old_id, new_id);
+    }
+
+    let result2 = extractor.extract_file("file2.rs", "fn caller() { shared_helper(); }");
+    let mut id_map2 = std::collections::HashMap::new();
+    for mut node in result2.nodes {
+        let old_id = node.id;
+        node.id = 0;
+        let new_id = db.insert_node(&node).unwrap();
+        id_map2.insert(old_id, new_id);
+    }
+
+    // Insert unresolved references
+    for mut uref in result2.unresolved_refs {
+        if let Some(&new_source) = id_map2.get(&uref.source_node_id) {
+            uref.source_node_id = new_source;
+            db.insert_unresolved_ref(&uref).unwrap();
+        }
+    }
+
+    // Resolve cross-file references
+    let resolved = db.resolve_references().unwrap();
+    assert!(resolved >= 1);
+
+    // Verify the cross-file call was resolved
+    let graph = Graph::new(&db);
+    let callers = graph.find_callers("shared_helper", 10).unwrap();
+    assert!(!callers.is_empty());
+}
+
+#[test]
+fn test_search_performance() {
+    let db = Database::in_memory().unwrap();
+    let file = FileRecord {
+        path: "many.rs".to_string(),
+        content_hash: "hash".to_string(),
+        language: Language::Rust,
+        size: 1000,
+        modified_at: 0,
+        indexed_at: 0,
+        node_count: 0,
+    };
+    db.insert_or_update_file(&file).unwrap();
+
+    // Insert many similar nodes
+    let mut extractor = Extractor::new();
+    let code = (0..1000)
+        .map(|i| format!("fn process_item_{}() {{}}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let result = extractor.extract_file("many.rs", &code);
+    for mut node in result.nodes {
+        node.id = 0;
+        db.insert_node(&node).unwrap();
+    }
+
+    // Measure search performance with limit
+    let start = std::time::Instant::now();
+    let results = db.search_nodes("process", None, 10).unwrap();
+    let duration = start.elapsed();
+    assert_eq!(results.len(), 10);
+    assert!(
+        duration.as_millis() < 50,
+        "Search took too long: {:?}",
+        duration
+    );
+
+    let start = std::time::Instant::now();
+    let results = db.search_nodes("process", None, 100).unwrap();
+    let duration = start.elapsed();
+    assert_eq!(results.len(), 100);
+    assert!(
+        duration.as_millis() < 100,
+        "Search took too long: {:?}",
+        duration
+    );
 }

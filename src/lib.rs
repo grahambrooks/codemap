@@ -201,7 +201,7 @@ pub fn index_codebase(db: &mut Database, config: &IndexConfig) -> Result<IndexSt
                 .unwrap_or(0),
             node_count: result.nodes.len() as u32,
         };
-        db.upsert_file(&file_record)?;
+        db.insert_or_update_file(&file_record)?;
 
         // Store nodes
         let mut node_count = 0;
@@ -245,7 +245,7 @@ pub fn index_codebase(db: &mut Database, config: &IndexConfig) -> Result<IndexSt
             indexed_at: file_record.indexed_at,
             node_count,
         };
-        db.upsert_file(&file_record)?;
+        db.insert_or_update_file(&file_record)?;
 
         stats.files += 1;
         stats.nodes += node_count as u64;

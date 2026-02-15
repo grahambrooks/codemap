@@ -29,22 +29,8 @@ pub fn open_project_database(project_root: &str) -> Result<Database> {
 
 /// Canonicalize and validate a path
 pub fn canonicalize_path(path: &str) -> Result<String> {
-    std::path::Path::new(path)
+    let canonical = std::path::Path::new(path)
         .canonicalize()
-        .context("Invalid path")?
-        .display()
-        .to_string()
-        .pipe(Ok)
+        .context("Invalid path")?;
+    Ok(canonical.display().to_string())
 }
-
-// Helper trait for pipe operation
-trait Pipe: Sized {
-    fn pipe<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Self) -> R,
-    {
-        f(self)
-    }
-}
-
-impl<T> Pipe for T {}
