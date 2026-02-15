@@ -1,9 +1,9 @@
 //! Shared formatting utilities for MCP tool outputs
 
-use crate::types::{CodeNode, NodeKind};
+use crate::types::Node;
 
 /// Format a single node as a list item with location
-pub fn format_node_list_item(node: &CodeNode) -> String {
+pub fn format_node_list_item(node: &Node) -> String {
     format!(
         "- **{}** `{}` - {}:{}-{}",
         node.kind.as_str(),
@@ -15,7 +15,7 @@ pub fn format_node_list_item(node: &CodeNode) -> String {
 }
 
 /// Format a node with signature
-pub fn format_node_with_signature(node: &CodeNode) -> String {
+pub fn format_node_with_signature(node: &Node) -> String {
     let mut output = format_node_list_item(node);
     if let Some(ref sig) = node.signature {
         output.push_str(&format!("\n  `{}`", sig));
@@ -25,7 +25,7 @@ pub fn format_node_with_signature(node: &CodeNode) -> String {
 }
 
 /// Format a node with basic location (for callers/callees)
-pub fn format_node_simple(node: &CodeNode) -> String {
+pub fn format_node_simple(node: &Node) -> String {
     format!(
         "- **{}** `{}` - {}:{}",
         node.kind.as_str(),
@@ -40,7 +40,3 @@ pub fn normalize_path(path: &str) -> &str {
     path.trim_start_matches("./")
 }
 
-/// Format node kind as a title
-pub fn format_kind_title(kind: &NodeKind) -> String {
-    kind.as_str().to_string()
-}
