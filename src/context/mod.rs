@@ -107,7 +107,7 @@ impl<'a> ContextBuilder<'a> {
         let mut entry_points = Vec::new();
 
         // Extract keywords from the task description
-        let keywords = self.extract_keywords(task);
+        let keywords = self.parse_task_keywords(task);
 
         for keyword in keywords {
             if entry_points.len() >= limit as usize {
@@ -138,8 +138,8 @@ impl<'a> ContextBuilder<'a> {
         Ok(entry_points)
     }
 
-    /// Extract keywords from a task description
-    fn extract_keywords(&self, task: &str) -> Vec<String> {
+    /// Parse keywords from a task description for symbol search
+    fn parse_task_keywords(&self, task: &str) -> Vec<String> {
         // Simple keyword extraction: split on whitespace and filter
         let stop_words = [
             "the",

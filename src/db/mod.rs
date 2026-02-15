@@ -49,8 +49,8 @@ impl Database {
     // File Operations
     // =========================================================================
 
-    /// Insert or update a file record
-    pub fn upsert_file(&self, file: &FileRecord) -> Result<()> {
+    /// Insert or update a file record (upsert operation)
+    pub fn insert_or_update_file(&self, file: &FileRecord) -> Result<()> {
         self.conn.execute(
             r#"
             INSERT INTO files (path, content_hash, language, size, modified_at, indexed_at, node_count)

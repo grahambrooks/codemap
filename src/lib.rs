@@ -22,6 +22,7 @@
 //! - `codemap_node` - Get detailed symbol information
 //! - `codemap_status` - Get index statistics
 
+pub mod cli;
 pub mod context;
 pub mod db;
 pub mod extraction;
