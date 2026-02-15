@@ -28,11 +28,11 @@ fn setup_debug_logging() {
 
 /// Start MCP server with stdio transport
 #[tokio::main]
-pub async fn start_stdio() -> Result<()> {
+pub async fn start_stdio(in_memory: bool) -> Result<()> {
     setup_debug_logging();
     info!("Starting codemap MCP server (stdio)");
 
-    let (project_root, db) = initialize_server_database()?;
+    let (project_root, db) = initialize_server_database(in_memory)?;
     info!("Project root: {}", project_root);
 
     let handler = CodeMapHandler::new(db, project_root);
@@ -46,11 +46,11 @@ pub async fn start_stdio() -> Result<()> {
 
 /// Start MCP server with HTTP transport
 #[tokio::main]
-pub async fn start_http(port: u16) -> Result<()> {
+pub async fn start_http(port: u16, in_memory: bool) -> Result<()> {
     setup_debug_logging();
     info!("Starting codemap MCP server (HTTP on port {})", port);
 
-    let (project_root, db) = initialize_server_database()?;
+    let (project_root, db) = initialize_server_database(in_memory)?;
     info!("Project root: {}", project_root);
 
     // Wrap database in Arc for sharing across HTTP sessions

@@ -143,8 +143,10 @@ pub fn context_command(path: &str, task: &str) -> Result<()> {
 }
 
 /// Initialize database for MCP server mode
-pub fn initialize_server_database() -> Result<(String, Database)> {
+pub fn initialize_server_database(in_memory: bool) -> Result<(String, Database)> {
     use std::env;
+
+    let in_memory = in_memory || env::var("CODEMAP_IN_MEMORY").map_or(false, |v| v == "1");
 
     // Get project root from environment or current directory
     let project_root = env::var("CODEMAP_ROOT")
@@ -152,7 +154,12 @@ pub fn initialize_server_database() -> Result<(String, Database)> {
         .context("Could not determine project root")?;
 
     let project_root = canonicalize_path(&project_root)?;
-    let db = open_project_database(&project_root)?;
+    let db = if in_memory {
+        info!("Using in-memory database (no filesystem writes)");
+        Database::in_memory()?
+    } else {
+        open_project_database(&project_root)?
+    };
 
     // Log database status
     let stats = db.get_stats()?;

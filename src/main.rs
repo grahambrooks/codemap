@@ -35,10 +35,12 @@ fn main() -> Result<()> {
                 .and_then(|i| args.get(i + 1))
                 .and_then(|p| p.parse::<u16>().ok());
 
+            let in_memory = args.iter().any(|a| a == "--in-memory");
+
             if let Some(port) = port {
-                server::start_http(port)?;
+                server::start_http(port, in_memory)?;
             } else {
-                server::start_stdio()?;
+                server::start_stdio(in_memory)?;
             }
         }
         "index" => {
@@ -93,17 +95,23 @@ USAGE:
 COMMANDS:
     serve                  Start the MCP server (stdio transport)
     serve --port <PORT>    Start the MCP server (HTTP transport)
+    serve --in-memory      Use in-memory database (no filesystem writes)
     index [path]           Index a codebase (default: current directory)
     status [path]          Show index statistics
     search <query>         Search for symbols by name
     context <task>         Build context for a task description
     help                   Show this help message
 
+ENVIRONMENT:
+    CODEMAP_ROOT           Project root directory (default: current directory)
+    CODEMAP_IN_MEMORY=1    Use in-memory database (alternative to --in-memory)
+
 EXAMPLES:
     codemap index                    # Index current directory
     codemap index ~/projects/myapp   # Index specific directory
     codemap serve                    # Start MCP server (stdio)
     codemap serve --port 8080        # Start MCP server (HTTP on port 8080)
+    codemap serve --in-memory        # Start MCP server with in-memory database
     codemap search "authenticate"    # Find symbols matching "authenticate"
     codemap context "add user login" # Build context for implementing login
 "#
