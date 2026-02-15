@@ -69,21 +69,35 @@ cargo test --test integration_test  # End-to-end tests
 | `extraction/mod.rs` | Code parsing | Tree-sitter extraction, symbol detection |
 | `graph/mod.rs` | Graph algorithms | `find_callers()`, `find_callees()`, impact analysis |
 | `context/mod.rs` | AI context | Task-focused code context building |
-| `mcp/mod.rs` | MCP protocol | 7 tools for IDE/editor integration |
+| `mcp/mod.rs` | MCP protocol | Tool definitions, handler orchestration |
+| `mcp/handlers/*` | Tool handlers | Individual tool implementations |
 
 **File Tree**:
 ```
 src/
-├── main.rs          # 300+ lines, CLI with clap
+├── main.rs          # CLI with clap
 ├── lib.rs           # Core indexing logic
-├── types.rs         # ~400 lines, all data types
-├── db/mod.rs        # ~1000 lines, SQLite operations
+├── types.rs         # All data types
+├── db/mod.rs        # SQLite operations
 ├── extraction/
-│   ├── mod.rs       # ~800 lines, tree-sitter extraction
+│   ├── mod.rs       # Tree-sitter extraction
 │   └── languages.rs # Language configs
-├── graph/mod.rs     # Graph traversal algorithms
+├── graph/mod.rs     # Graph traversal
 ├── context/mod.rs   # Context building
-└── mcp/mod.rs       # MCP server implementation
+└── mcp/
+    ├── mod.rs            # Tool definitions (~220 lines)
+    ├── types.rs          # Request types
+    ├── constants.rs      # Configuration
+    ├── format.rs         # Shared formatting
+    └── handlers/
+        ├── mod.rs
+        ├── context.rs    # Context tool
+        ├── search.rs     # Search tool
+        ├── graph.rs      # Callers/callees/impact
+        ├── symbol.rs     # Node/definition/references
+        ├── file.rs       # File listing
+        ├── reindex.rs    # Reindexing
+        └── status.rs     # Status reporting
 ```
 
 ### Data Flow
@@ -132,15 +146,15 @@ src/
 
 ### Key Dependencies
 
-| Crate | Purpose | Why This Choice |
-|-------|---------|-----------------|
-| `rmcp` | MCP protocol | Official Rust MCP implementation, stdio + HTTP |
-| `tree-sitter` | Code parsing | Industry standard, supports 50+ languages |
-| `rusqlite` | Database | Bundled SQLite, zero-config, fast queries |
-| `axum` | HTTP server | Tokio-based, minimal overhead for MCP HTTP |
-| `ignore` | File walking | Respects .gitignore, battle-tested |
-| `clap` | CLI parsing | Derive-based API, excellent UX |
-| `tracing` | Logging | Structured logging for debugging |
+| Crate | Purpose |
+|-------|---------|
+| `rmcp` | MCP protocol (stdio + HTTP) |
+| `tree-sitter` | Code parsing (50+ languages) |
+| `rusqlite` | SQLite database |
+| `axum` | HTTP server |
+| `ignore` | .gitignore-aware file walking |
+| `clap` | CLI parsing |
+| `tracing` | Structured logging |
 
 ### Database Schema
 
@@ -163,36 +177,25 @@ src/
 
 ### Supported Languages
 
-| Language | File Extensions | Visibility Detection | Special Notes |
-|----------|----------------|---------------------|---------------|
-| Rust | `.rs` | `pub` keyword, default private | Full support |
-| TypeScript | `.ts`, `.tsx` | `public`/`private` keywords, export | Classes + modules |
-| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | Export detection | ES6+ syntax |
-| Python | `.py`, `.pyi` | All public by default | PEP 8 conventions |
-| Go | `.go` | All public by default | Capitalization ignored |
-| Java | `.java` | `public`/`private`/`protected` | Full OOP support |
-| C | `.c`, `.h` | Static keyword | Function-level |
-| C++ | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx` | Access specifiers | Class-level |
+Rust, TypeScript/JavaScript, Python, Go, Java, C, C++
 
-**Adding New Languages**: Edit `src/extraction/languages.rs` with tree-sitter grammar configuration
+**Adding Languages**: Edit `src/extraction/languages.rs` with tree-sitter grammar config
 
-### MCP Tools (7 Total)
+### MCP Tools
 
-| Tool | Input | Output | Use Case |
-|------|-------|--------|----------|
-| `codemap-context` | `{task: string}` | Focused code context | AI coding tasks, feature planning |
-| `codemap-search` | `{query: string}` | List of matching symbols | "Find all Database symbols" |
-| `codemap-callers` | `{symbol: string}` | All functions that call this | "Who calls this function?" |
-| `codemap-callees` | `{symbol: string}` | All functions this calls | "What does this function call?" |
-| `codemap-impact` | `{symbol: string}` | Impact analysis (direct + indirect) | "What breaks if I change this?" |
-| `codemap-node` | `{symbol: string}` | Full symbol details | Language, visibility, signature, docs |
-| `codemap-status` | None | Index statistics | Health check, debugging |
-
-**Example Workflow**:
-1. Agent wants to understand a function: `codemap-node {symbol: "handle_request"}`
-2. See what it calls: `codemap-callees {symbol: "handle_request"}`
-3. See what calls it: `codemap-callers {symbol: "handle_request"}`
-4. Analyze impact before changing: `codemap-impact {symbol: "handle_request"}`
+| Tool | Input | Use Case |
+|------|-------|----------|
+| `codemap-context` | `{task: string}` | AI coding tasks, feature planning |
+| `codemap-search` | `{query: string}` | Find matching symbols |
+| `codemap-callers` | `{symbol: string}` | Who calls this function? |
+| `codemap-callees` | `{symbol: string}` | What does this call? |
+| `codemap-impact` | `{symbol: string}` | What breaks if changed? |
+| `codemap-definition` | `{symbol: string, context_lines?: u32}` | View source code |
+| `codemap-file` | `{path: string}` | List symbols in file |
+| `codemap-references` | `{symbol: string}` | All usages of symbol |
+| `codemap-node` | `{symbol: string}` | Symbol metadata |
+| `codemap-status` | None | Index health check |
+| `codemap-reindex` | `{files?: string[]}` | Refresh index |
 
 ## Agent-Specific Guidelines
 
@@ -212,6 +215,29 @@ src/
 - **Use `Result<T>` for errors**: Avoid panics except in tests/assertions
 - **Prefer iterators**: Over manual loops for collections
 - **Use `?` operator**: For error propagation in functions returning `Result`
+
+### Modularity Best Practices
+
+**When to Split Modules**:
+- File exceeds 500 lines → Extract related functions to submodules
+- Repeated code patterns → Create shared utilities module
+- Multiple responsibilities → Separate by concern (handlers/, types.rs, constants.rs)
+
+**Module Organization Pattern**:
+```
+module/
+├── mod.rs          # Public API, re-exports, orchestration
+├── types.rs        # Data structures, request/response types
+├── constants.rs    # Configuration values
+├── format.rs       # Shared formatting/utilities
+└── handlers/       # Individual implementations
+```
+
+**Key Principles**:
+- Each file has one clear responsibility
+- Shared logic goes in utilities, not duplicated
+- Constants centralized for easy configuration
+- Handler functions take dependencies as parameters (testable)
 
 ### Testing Strategy
 
@@ -235,11 +261,41 @@ src/
 
 #### Adding a New MCP Tool
 
-1. Add tool function to `src/mcp/mod.rs` with `#[tool]` attribute
-2. Add request struct with `#[derive(Deserialize, JsonSchema)]`
-3. Implement tool logic (query database, format output)
-4. Add test in `tests/integration_test.rs`
-5. Update this file's MCP tools table
+1. **Add request type** to `src/mcp/types.rs`:
+   ```rust
+   #[derive(Debug, Deserialize, schemars::JsonSchema)]
+   pub struct MyToolRequest {
+       #[schemars(description = "Description")]
+       pub param: String,
+   }
+   ```
+
+2. **Create handler** in `src/mcp/handlers/mytool.rs`:
+   ```rust
+   use crate::db::Database;
+   use crate::mcp::types::MyToolRequest;
+
+   pub fn handle_mytool(db: &Database, req: &MyToolRequest) -> String {
+       // Implementation
+   }
+   ```
+
+3. **Add to handlers/mod.rs**: `pub mod mytool;`
+
+4. **Add tool definition** to `src/mcp/mod.rs`:
+   ```rust
+   #[tool(name = "codemap-mytool", description = "...")]
+   fn codemap_mytool(&self, Parameters(req): Parameters<MyToolRequest>) -> String {
+       let db = match self.db.lock() {
+           Ok(db) => db,
+           Err(e) => return format!("Error: {}", e),
+       };
+       handlers::mytool::handle_mytool(&db, &req)
+   }
+   ```
+
+5. **Test** in `tests/integration_test.rs`
+6. **Update** MCP tools table in this file
 
 #### Fixing a Bug
 
@@ -249,13 +305,13 @@ src/
 4. Check for similar bugs in related code
 5. Add regression test if needed
 
-### Performance Considerations
+### Performance Tips
 
-- **Database indexes**: All queries should use indexed columns
-- **Batch operations**: Use transactions for multiple inserts
-- **Lazy loading**: Don't load all nodes into memory
-- **String allocations**: Minimize in hot paths (use `&str` when possible)
-- **Tree-sitter memory**: Parser is reused, don't create per-file
+- Use indexed columns in queries
+- Batch operations in transactions
+- Lazy loading, avoid loading all nodes
+- Minimize string allocations (`&str` over `String`)
+- Reuse tree-sitter parser
 
 ### Debugging Tips
 
@@ -275,15 +331,12 @@ sqlite3 .codemap/index.db "SELECT COUNT(*) FROM nodes"
 sqlite3 .codemap/index.db "SELECT * FROM nodes WHERE name = 'my_function'"
 ```
 
-### Version Bump Checklist
+### Version Bump
 
-- [ ] Update version in `Cargo.toml`
-- [ ] Run `cargo build --release`
-- [ ] Run `cargo test --release`
-- [ ] Update CHANGELOG or commit message with changes
-- [ ] Commit: `git commit -m "chore: bump version to X.Y.Z"`
-- [ ] Tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-- [ ] Push: `git push origin main && git push origin vX.Y.Z`
+1. Update `Cargo.toml`
+2. Run `cargo build --release && cargo test --release`
+3. Commit: `git commit -m "chore: bump to vX.Y.Z"`
+4. Tag: `git tag vX.Y.Z && git push origin main --tags`
 
 ## Quick Problem Solving
 
