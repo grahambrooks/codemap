@@ -12,6 +12,11 @@
 //! - codemap-file: List all symbols in a file
 //! - codemap-references: Find all references to a symbol
 //! - codemap-reindex: Trigger incremental reindexing
+//! - codemap-hierarchy: Get class/module hierarchy
+//! - codemap-path: Find call paths between symbols
+//! - codemap-unused: Find unused/dead code
+//! - codemap-implementations: Find implementations of interfaces/traits
+//! - codemap-diff-impact: Analyze impact of code changes
 
 mod constants;
 mod format;
@@ -210,6 +215,76 @@ impl CodeMapHandler {
 
         handlers::status::handle_status(&db)
     }
+
+    /// Get class/module hierarchy
+    #[tool(
+        name = "codemap-hierarchy",
+        description = "Get the hierarchy of a symbol showing parent/child contains relationships (e.g., class contains methods)."
+    )]
+    fn codemap_hierarchy(&self, Parameters(req): Parameters<SymbolRequest>) -> String {
+        let db = match self.db.lock() {
+            Ok(db) => db,
+            Err(e) => return format!("Error: {}", e),
+        };
+
+        handlers::hierarchy::handle_hierarchy(&db, &req)
+    }
+
+    /// Find call path between two symbols
+    #[tool(
+        name = "codemap-path",
+        description = "Find call paths from one symbol to another. Shows how function A reaches function B through intermediate calls."
+    )]
+    fn codemap_path(&self, Parameters(req): Parameters<PathRequest>) -> String {
+        let db = match self.db.lock() {
+            Ok(db) => db,
+            Err(e) => return format!("Error: {}", e),
+        };
+
+        handlers::path::handle_path(&db, &req)
+    }
+
+    /// Find unused/dead code
+    #[tool(
+        name = "codemap-unused",
+        description = "Find unused symbols (functions, methods, classes) with no incoming references. Helps identify dead code."
+    )]
+    fn codemap_unused(&self) -> String {
+        let db = match self.db.lock() {
+            Ok(db) => db,
+            Err(e) => return format!("Error: {}", e),
+        };
+
+        handlers::unused::handle_unused(&db)
+    }
+
+    /// Find implementations of an interface/trait
+    #[tool(
+        name = "codemap-implementations",
+        description = "Find all classes/structs that implement an interface or extend a trait/class."
+    )]
+    fn codemap_implementations(&self, Parameters(req): Parameters<SymbolRequest>) -> String {
+        let db = match self.db.lock() {
+            Ok(db) => db,
+            Err(e) => return format!("Error: {}", e),
+        };
+
+        handlers::implementations::handle_implementations(&db, &req)
+    }
+
+    /// Analyze impact of code changes
+    #[tool(
+        name = "codemap-diff-impact",
+        description = "Analyze the impact of changing a specific region of code. Shows directly modified symbols and their callers."
+    )]
+    fn codemap_diff_impact(&self, Parameters(req): Parameters<DiffImpactRequest>) -> String {
+        let db = match self.db.lock() {
+            Ok(db) => db,
+            Err(e) => return format!("Error: {}", e),
+        };
+
+        handlers::diff_impact::handle_diff_impact(&db, &req)
+    }
 }
 
 #[tool_handler]
@@ -221,7 +296,10 @@ impl ServerHandler for CodeMapHandler {
                 Use codemap-context to build task-focused context, codemap-search for quick lookups, \
                 codemap-callers/callees/impact for understanding code relationships, \
                 codemap-definition to view source code, codemap-file to list symbols in a file, \
-                codemap-references for all usages of a symbol, and codemap-reindex to refresh after edits."
+                codemap-references for all usages of a symbol, codemap-hierarchy for class/module structure, \
+                codemap-path to find call paths between functions, codemap-unused to find dead code, \
+                codemap-implementations to find interface/trait implementations, \
+                codemap-diff-impact to analyze change impact, and codemap-reindex to refresh after edits."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),

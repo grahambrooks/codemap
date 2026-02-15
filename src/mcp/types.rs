@@ -48,3 +48,23 @@ pub struct ReindexRequest {
     )]
     pub files: Option<Vec<String>>,
 }
+
+/// Request for call path tool
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct PathRequest {
+    #[schemars(description = "Starting symbol name")]
+    pub from: String,
+    #[schemars(description = "Target symbol name")]
+    pub to: String,
+}
+
+/// Request for diff impact tool
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct DiffImpactRequest {
+    #[schemars(description = "File path relative to project root")]
+    pub file_path: String,
+    #[schemars(description = "Start line of the change (1-indexed)")]
+    pub start_line: u32,
+    #[schemars(description = "End line of the change (1-indexed)")]
+    pub end_line: u32,
+}

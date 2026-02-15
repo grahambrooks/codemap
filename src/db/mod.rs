@@ -531,6 +531,225 @@ impl Database {
         self.conn.execute("ROLLBACK", [])?;
         Ok(())
     }
+
+    /// Get the hierarchy of a symbol (parent contains relationships)
+    pub fn get_hierarchy(&self, symbol: &str) -> Result<Vec<Node>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT n.* FROM nodes n
+             INNER JOIN edges e ON e.source_id = n.id
+             INNER JOIN nodes target ON e.target_id = target.id
+             WHERE e.kind = 'contains' AND target.name = ?
+             UNION
+             SELECT n.* FROM nodes n
+             INNER JOIN edges e ON e.target_id = n.id
+             INNER JOIN nodes source ON e.source_id = source.id
+             WHERE e.kind = 'contains' AND source.name = ?",
+        )?;
+
+        let rows = stmt.query_map(params![symbol, symbol], |row| {
+            Ok(Node {
+                id: row.get(0)?,
+                kind: NodeKind::parse(&row.get::<_, String>(1)?).unwrap_or(NodeKind::Function),
+                name: row.get(2)?,
+                qualified_name: row.get(3)?,
+                file_path: row.get(4)?,
+                start_line: row.get::<_, i64>(5)? as u32,
+                end_line: row.get::<_, i64>(6)? as u32,
+                start_column: row.get::<_, i64>(7)? as u32,
+                end_column: row.get::<_, i64>(8)? as u32,
+                signature: row.get(9)?,
+                visibility: Visibility::parse(&row.get::<_, String>(10)?),
+                docstring: row.get(11)?,
+                is_async: row.get(12)?,
+                is_static: row.get(13)?,
+                is_exported: row.get(14)?,
+                language: Language::parse(&row.get::<_, String>(15)?),
+            })
+        })?;
+
+        let mut nodes = Vec::new();
+        for row in rows {
+            nodes.push(row?);
+        }
+        Ok(nodes)
+    }
+
+    /// Find call path between two symbols using BFS
+    pub fn find_call_path(&self, from: &str, to: &str) -> Result<Vec<Vec<Node>>> {
+        // Get source and target nodes
+        let source = self.find_node_by_name(from)?;
+        let target = self.find_node_by_name(to)?;
+
+        match (source, target) {
+            (Some(src), Some(tgt)) => {
+                let mut paths = Vec::new();
+                let mut visited = std::collections::HashSet::new();
+                let mut queue = std::collections::VecDeque::new();
+                queue.push_back((src.id, vec![src.clone()]));
+
+                while let Some((current_id, path)) = queue.pop_front() {
+                    if current_id == tgt.id {
+                        paths.push(path);
+                        if paths.len() >= 5 {
+                            // Limit to first 5 paths
+                            break;
+                        }
+                        continue;
+                    }
+
+                    if path.len() > 10 || visited.contains(&current_id) {
+                        // Depth limit and cycle prevention
+                        continue;
+                    }
+                    visited.insert(current_id);
+
+                    // Get all callees
+                    let callees = self.get_callees(current_id, 100)?;
+                    for callee in callees {
+                        let mut new_path = path.clone();
+                        new_path.push(callee.clone());
+                        queue.push_back((callee.id, new_path));
+                    }
+                }
+
+                Ok(paths)
+            }
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    /// Find unused symbols (no incoming calls/references)
+    pub fn find_unused_symbols(&self) -> Result<Vec<Node>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT n.* FROM nodes n
+             WHERE n.kind IN ('function', 'method', 'class', 'struct', 'interface')
+             AND n.id NOT IN (SELECT DISTINCT target_id FROM edges WHERE kind IN ('calls', 'references', 'instantiates'))
+             ORDER BY n.file_path, n.start_line",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(Node {
+                id: row.get(0)?,
+                kind: NodeKind::parse(&row.get::<_, String>(1)?).unwrap_or(NodeKind::Function),
+                name: row.get(2)?,
+                qualified_name: row.get(3)?,
+                file_path: row.get(4)?,
+                start_line: row.get::<_, i64>(5)? as u32,
+                end_line: row.get::<_, i64>(6)? as u32,
+                start_column: row.get::<_, i64>(7)? as u32,
+                end_column: row.get::<_, i64>(8)? as u32,
+                signature: row.get(9)?,
+                visibility: Visibility::parse(&row.get::<_, String>(10)?),
+                docstring: row.get(11)?,
+                is_async: row.get(12)?,
+                is_static: row.get(13)?,
+                is_exported: row.get(14)?,
+                language: Language::parse(&row.get::<_, String>(15)?),
+            })
+        })?;
+
+        let mut nodes = Vec::new();
+        for row in rows {
+            nodes.push(row?);
+        }
+        Ok(nodes)
+    }
+
+    /// Find all implementations of an interface/trait
+    pub fn find_implementations(&self, symbol: &str) -> Result<Vec<Node>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT n.* FROM nodes n
+             INNER JOIN edges e ON e.source_id = n.id
+             INNER JOIN nodes target ON e.target_id = target.id
+             WHERE e.kind IN ('implements', 'extends') AND target.name = ?",
+        )?;
+
+        let rows = stmt.query_map([symbol], |row| {
+            Ok(Node {
+                id: row.get(0)?,
+                kind: NodeKind::parse(&row.get::<_, String>(1)?).unwrap_or(NodeKind::Function),
+                name: row.get(2)?,
+                qualified_name: row.get(3)?,
+                file_path: row.get(4)?,
+                start_line: row.get::<_, i64>(5)? as u32,
+                end_line: row.get::<_, i64>(6)? as u32,
+                start_column: row.get::<_, i64>(7)? as u32,
+                end_column: row.get::<_, i64>(8)? as u32,
+                signature: row.get(9)?,
+                visibility: Visibility::parse(&row.get::<_, String>(10)?),
+                docstring: row.get(11)?,
+                is_async: row.get(12)?,
+                is_static: row.get(13)?,
+                is_exported: row.get(14)?,
+                language: Language::parse(&row.get::<_, String>(15)?),
+            })
+        })?;
+
+        let mut nodes = Vec::new();
+        for row in rows {
+            nodes.push(row?);
+        }
+        Ok(nodes)
+    }
+
+    /// Get symbols that would be affected by changing a file region
+    pub fn get_diff_impact(
+        &self,
+        file_path: &str,
+        start_line: u32,
+        end_line: u32,
+    ) -> Result<Vec<Node>> {
+        // Find all symbols in the affected region
+        let mut affected = Vec::new();
+
+        let mut stmt = self.conn.prepare(
+            "SELECT * FROM nodes
+             WHERE file_path = ?
+             AND ((start_line <= ? AND end_line >= ?)
+                  OR (start_line >= ? AND start_line <= ?))",
+        )?;
+
+        let rows = stmt.query_map(
+            params![file_path, end_line, start_line, start_line, end_line],
+            |row| {
+                Ok(Node {
+                    id: row.get(0)?,
+                    kind: NodeKind::parse(&row.get::<_, String>(1)?).unwrap_or(NodeKind::Function),
+                    name: row.get(2)?,
+                    qualified_name: row.get(3)?,
+                    file_path: row.get(4)?,
+                    start_line: row.get::<_, i64>(5)? as u32,
+                    end_line: row.get::<_, i64>(6)? as u32,
+                    start_column: row.get::<_, i64>(7)? as u32,
+                    end_column: row.get::<_, i64>(8)? as u32,
+                    signature: row.get(9)?,
+                    visibility: Visibility::parse(&row.get::<_, String>(10)?),
+                    docstring: row.get(11)?,
+                    is_async: row.get(12)?,
+                    is_static: row.get(13)?,
+                    is_exported: row.get(14)?,
+                    language: Language::parse(&row.get::<_, String>(15)?),
+                })
+            },
+        )?;
+
+        for row in rows {
+            affected.push(row?);
+        }
+
+        // For each affected symbol, find all callers
+        let mut impacted = affected.clone();
+        for node in &affected {
+            let callers = self.get_callers(node.id, 100)?;
+            for caller in callers {
+                if !impacted.iter().any(|n| n.id == caller.id) {
+                    impacted.push(caller);
+                }
+            }
+        }
+
+        Ok(impacted)
+    }
 }
 
 #[cfg(test)]
@@ -682,12 +901,24 @@ mod tests {
         let file = create_test_file("test.rs");
         db.insert_or_update_file(&file).unwrap();
 
-        db.insert_node(&create_test_node("process_data", NodeKind::Function, "test.rs"))
-            .unwrap();
-        db.insert_node(&create_test_node("process_input", NodeKind::Function, "test.rs"))
-            .unwrap();
-        db.insert_node(&create_test_node("handle_error", NodeKind::Function, "test.rs"))
-            .unwrap();
+        db.insert_node(&create_test_node(
+            "process_data",
+            NodeKind::Function,
+            "test.rs",
+        ))
+        .unwrap();
+        db.insert_node(&create_test_node(
+            "process_input",
+            NodeKind::Function,
+            "test.rs",
+        ))
+        .unwrap();
+        db.insert_node(&create_test_node(
+            "handle_error",
+            NodeKind::Function,
+            "test.rs",
+        ))
+        .unwrap();
 
         let results = db.search_nodes("process", None, 10).unwrap();
         assert_eq!(results.len(), 2);
@@ -705,8 +936,12 @@ mod tests {
 
         db.insert_node(&create_test_node("MyClass", NodeKind::Class, "test.rs"))
             .unwrap();
-        db.insert_node(&create_test_node("my_function", NodeKind::Function, "test.rs"))
-            .unwrap();
+        db.insert_node(&create_test_node(
+            "my_function",
+            NodeKind::Function,
+            "test.rs",
+        ))
+        .unwrap();
 
         let results = db.search_nodes("my", Some(NodeKind::Function), 10).unwrap();
         assert_eq!(results.len(), 1);
@@ -719,8 +954,12 @@ mod tests {
         let file = create_test_file("test.rs");
         db.insert_or_update_file(&file).unwrap();
 
-        db.insert_node(&create_test_node("MyFunction", NodeKind::Function, "test.rs"))
-            .unwrap();
+        db.insert_node(&create_test_node(
+            "MyFunction",
+            NodeKind::Function,
+            "test.rs",
+        ))
+        .unwrap();
 
         let results = db.search_nodes("myfunction", None, 10).unwrap();
         assert_eq!(results.len(), 1);
@@ -735,8 +974,12 @@ mod tests {
         let file = create_test_file("test.rs");
         db.insert_or_update_file(&file).unwrap();
 
-        db.insert_node(&create_test_node("unique_name", NodeKind::Function, "test.rs"))
-            .unwrap();
+        db.insert_node(&create_test_node(
+            "unique_name",
+            NodeKind::Function,
+            "test.rs",
+        ))
+        .unwrap();
 
         let result = db.find_node_by_name("unique_name").unwrap();
         assert!(result.is_some());
@@ -877,7 +1120,11 @@ mod tests {
             .insert_node(&create_test_node("caller", NodeKind::Function, "test.rs"))
             .unwrap();
         let _callee_id = db
-            .insert_node(&create_test_node("target_func", NodeKind::Function, "test.rs"))
+            .insert_node(&create_test_node(
+                "target_func",
+                NodeKind::Function,
+                "test.rs",
+            ))
             .unwrap();
 
         let uref = UnresolvedReference {
@@ -990,6 +1237,221 @@ mod tests {
 
         let stats = db.get_stats().unwrap();
         assert_eq!(stats.total_nodes, 0);
+    }
+
+    #[test]
+    fn test_get_hierarchy() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.insert_or_update_file(&file).unwrap();
+
+        // Create a class and its methods
+        let class_id = db
+            .insert_node(&create_test_node("MyClass", NodeKind::Class, "test.rs"))
+            .unwrap();
+        let method_id = db
+            .insert_node(&create_test_node("my_method", NodeKind::Method, "test.rs"))
+            .unwrap();
+
+        // Create contains relationship
+        let edge = Edge {
+            id: 0,
+            source_id: class_id,
+            target_id: method_id,
+            kind: EdgeKind::Contains,
+            file_path: None,
+            line: None,
+            column: None,
+        };
+        db.insert_edge(&edge).unwrap();
+
+        // Get hierarchy for the method
+        let hierarchy = db.get_hierarchy("my_method").unwrap();
+        assert_eq!(hierarchy.len(), 1);
+        assert_eq!(hierarchy[0].name, "MyClass");
+
+        // Get hierarchy for the class
+        let hierarchy = db.get_hierarchy("MyClass").unwrap();
+        assert_eq!(hierarchy.len(), 1);
+        assert_eq!(hierarchy[0].name, "my_method");
+    }
+
+    #[test]
+    fn test_find_call_path() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.insert_or_update_file(&file).unwrap();
+
+        // Create a call chain: a -> b -> c
+        let a_id = db
+            .insert_node(&create_test_node("a", NodeKind::Function, "test.rs"))
+            .unwrap();
+        let b_id = db
+            .insert_node(&create_test_node("b", NodeKind::Function, "test.rs"))
+            .unwrap();
+        let c_id = db
+            .insert_node(&create_test_node("c", NodeKind::Function, "test.rs"))
+            .unwrap();
+
+        db.insert_edge(&Edge {
+            id: 0,
+            source_id: a_id,
+            target_id: b_id,
+            kind: EdgeKind::Calls,
+            file_path: None,
+            line: None,
+            column: None,
+        })
+        .unwrap();
+
+        db.insert_edge(&Edge {
+            id: 0,
+            source_id: b_id,
+            target_id: c_id,
+            kind: EdgeKind::Calls,
+            file_path: None,
+            line: None,
+            column: None,
+        })
+        .unwrap();
+
+        // Find path from a to c
+        let paths = db.find_call_path("a", "c").unwrap();
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].len(), 3);
+        assert_eq!(paths[0][0].name, "a");
+        assert_eq!(paths[0][1].name, "b");
+        assert_eq!(paths[0][2].name, "c");
+    }
+
+    #[test]
+    fn test_find_unused_symbols() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.insert_or_update_file(&file).unwrap();
+
+        // Create used and unused functions
+        let used_id = db
+            .insert_node(&create_test_node(
+                "used_func",
+                NodeKind::Function,
+                "test.rs",
+            ))
+            .unwrap();
+        let _unused_id = db
+            .insert_node(&create_test_node(
+                "unused_func",
+                NodeKind::Function,
+                "test.rs",
+            ))
+            .unwrap();
+        let caller_id = db
+            .insert_node(&create_test_node("caller", NodeKind::Function, "test.rs"))
+            .unwrap();
+
+        // Create a call to used_func
+        db.insert_edge(&Edge {
+            id: 0,
+            source_id: caller_id,
+            target_id: used_id,
+            kind: EdgeKind::Calls,
+            file_path: None,
+            line: None,
+            column: None,
+        })
+        .unwrap();
+
+        // Find unused symbols
+        let unused = db.find_unused_symbols().unwrap();
+        assert_eq!(unused.len(), 2); // unused_func and caller (no one calls caller)
+        assert!(unused.iter().any(|n| n.name == "unused_func"));
+        assert!(unused.iter().any(|n| n.name == "caller"));
+    }
+
+    #[test]
+    fn test_find_implementations() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.insert_or_update_file(&file).unwrap();
+
+        // Create an interface and implementations
+        let interface_id = db
+            .insert_node(&create_test_node("MyTrait", NodeKind::Interface, "test.rs"))
+            .unwrap();
+        let impl1_id = db
+            .insert_node(&create_test_node("Impl1", NodeKind::Struct, "test.rs"))
+            .unwrap();
+        let impl2_id = db
+            .insert_node(&create_test_node("Impl2", NodeKind::Struct, "test.rs"))
+            .unwrap();
+
+        // Create implements relationships
+        db.insert_edge(&Edge {
+            id: 0,
+            source_id: impl1_id,
+            target_id: interface_id,
+            kind: EdgeKind::Implements,
+            file_path: None,
+            line: None,
+            column: None,
+        })
+        .unwrap();
+
+        db.insert_edge(&Edge {
+            id: 0,
+            source_id: impl2_id,
+            target_id: interface_id,
+            kind: EdgeKind::Implements,
+            file_path: None,
+            line: None,
+            column: None,
+        })
+        .unwrap();
+
+        // Find implementations
+        let impls = db.find_implementations("MyTrait").unwrap();
+        assert_eq!(impls.len(), 2);
+        assert!(impls.iter().any(|n| n.name == "Impl1"));
+        assert!(impls.iter().any(|n| n.name == "Impl2"));
+    }
+
+    #[test]
+    fn test_get_diff_impact() {
+        let db = Database::in_memory().unwrap();
+        let file = create_test_file("test.rs");
+        db.insert_or_update_file(&file).unwrap();
+
+        // Create a function in lines 10-20
+        let mut affected_node = create_test_node("affected_func", NodeKind::Function, "test.rs");
+        affected_node.start_line = 10;
+        affected_node.end_line = 20;
+        let affected_id = db.insert_node(&affected_node).unwrap();
+
+        // Create a caller
+        let caller_id = db
+            .insert_node(&create_test_node(
+                "caller_func",
+                NodeKind::Function,
+                "test.rs",
+            ))
+            .unwrap();
+
+        db.insert_edge(&Edge {
+            id: 0,
+            source_id: caller_id,
+            target_id: affected_id,
+            kind: EdgeKind::Calls,
+            file_path: None,
+            line: None,
+            column: None,
+        })
+        .unwrap();
+
+        // Test diff impact for lines 15-18 (overlaps with affected_func)
+        let impacted = db.get_diff_impact("test.rs", 15, 18).unwrap();
+        assert_eq!(impacted.len(), 2); // affected_func and its caller
+        assert!(impacted.iter().any(|n| n.name == "affected_func"));
+        assert!(impacted.iter().any(|n| n.name == "caller_func"));
     }
 }
 

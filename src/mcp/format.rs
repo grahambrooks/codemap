@@ -39,3 +39,20 @@ pub fn format_node_simple(node: &Node) -> String {
 pub fn normalize_path(path: &str) -> &str {
     path.trim_start_matches("./")
 }
+
+/// Format a node with full details
+pub fn format_node(node: &Node) -> String {
+    let mut output = String::new();
+    output.push_str(&format!("**{}** `{}`\n", node.kind.as_str(), node.name));
+    output.push_str(&format!(
+        "- Location: {}:{}-{}\n",
+        node.file_path, node.start_line, node.end_line
+    ));
+    if let Some(ref sig) = node.signature {
+        output.push_str(&format!("- Signature: `{}`\n", sig));
+    }
+    if let Some(ref doc) = node.docstring {
+        output.push_str(&format!("- Doc: {}\n", doc));
+    }
+    output
+}

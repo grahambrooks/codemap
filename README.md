@@ -17,6 +17,12 @@ binary deployment of MCP Servers.
 - **Symbol extraction**: functions, classes, methods, structs, interfaces, traits, enums, constants
 - **Relationship tracking**: calls, contains, imports, exports, extends, implements
 - **Impact analysis**: trace the effect of changes through the codebase
+- **Advanced code intelligence**:
+  - Find call paths between functions
+  - Detect unused/dead code
+  - Explore class hierarchies
+  - Locate all interface implementations
+  - Analyze change impact by line range
 - **Incremental indexing**: only re-indexes changed files using content hashing
 - **Dual transport**: stdio (default) and HTTP server modes
 
@@ -103,15 +109,59 @@ codemap context <task>         # Build context for a task
 
 ## MCP Tools
 
-| Tool              | Description                                    |
-|-------------------|------------------------------------------------|
-| `codemap-context` | Build focused code context for a specific task |
-| `codemap-search`  | Quick symbol search by name                    |
-| `codemap-callers` | Find all callers of a symbol                   |
-| `codemap-callees` | Find all callees of a symbol                   |
-| `codemap-impact`  | Analyze the impact radius of changes           |
-| `codemap-node`    | Get detailed symbol information                |
-| `codemap-status`  | Get index statistics                           |
+### Core Tools
+
+| Tool                     | Description                                              |
+|--------------------------|----------------------------------------------------------|
+| `codemap-context`        | Build focused code context for a specific task           |
+| `codemap-search`         | Quick symbol search by name                              |
+| `codemap-callers`        | Find all callers of a symbol                             |
+| `codemap-callees`        | Find all callees of a symbol                             |
+| `codemap-impact`         | Analyze the impact radius of changes                     |
+| `codemap-node`           | Get detailed symbol information                          |
+| `codemap-definition`     | Get the full source code of a symbol with context        |
+| `codemap-file`           | List all symbols defined in a specific file              |
+| `codemap-references`     | Find all references to a symbol                          |
+| `codemap-reindex`        | Trigger incremental reindexing of changed files          |
+| `codemap-status`         | Get index statistics                                     |
+
+### Advanced Tools
+
+| Tool                     | Description                                              |
+|--------------------------|----------------------------------------------------------|
+| `codemap-hierarchy`      | Get class/module hierarchy (parent/child relationships)  |
+| `codemap-path`           | Find call paths between two symbols                      |
+| `codemap-unused`         | Find unused/dead code with no incoming references        |
+| `codemap-implementations`| Find all implementations of an interface/trait           |
+| `codemap-diff-impact`    | Analyze the impact of changing a specific code region    |
+
+### Example Use Cases
+
+**Find dead code for cleanup:**
+```
+Use codemap-unused to find all unused functions and classes
+```
+
+**Understand function call chains:**
+```
+Use codemap-path with from="main" and to="database_query" to see how data flows
+```
+
+**Assess change impact:**
+```
+Use codemap-diff-impact with file_path="src/auth.rs" start_line=45 end_line=60
+to see what would be affected by changes in that region
+```
+
+**Explore OOP hierarchies:**
+```
+Use codemap-hierarchy with symbol="BaseHandler" to see all parent/child relationships
+```
+
+**Find all trait implementations:**
+```
+Use codemap-implementations with symbol="Iterator" to find all structs implementing Iterator
+```
 
 ## Configuration
 
